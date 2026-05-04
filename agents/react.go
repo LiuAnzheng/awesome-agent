@@ -46,7 +46,7 @@ func (ra *ReActAgent) Run(inputText string) (string, error) {
 
 		if len(resp.ToolCalls) > 0 {
 			if ra.Config.Debug {
-				logger.Printf("step %d — %s, calling: %s", step,
+				logger.Printf("step %d ---- %s, calling: %s", step+1,
 					truncate(extractString(resp.Content), 80),
 					resp.ToolCalls[0].Function.Name)
 			}
