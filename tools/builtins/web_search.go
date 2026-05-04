@@ -19,15 +19,15 @@ type WebSearchTool struct {
 	client       *http.Client
 }
 
-func (w WebSearchTool) Name() string {
+func (w *WebSearchTool) Name() string {
 	return "WebSearch"
 }
 
-func (w WebSearchTool) Description() string {
+func (w *WebSearchTool) Description() string {
 	return "搜索引擎工具，当用户需要实时信息或互联网信息时，应使用该工具"
 }
 
-func (w WebSearchTool) Run(parameters map[string]interface{}) (string, error) {
+func (w *WebSearchTool) Run(parameters map[string]interface{}) (string, error) {
 	if w.tavilyApiKey == "" && w.serpApiKey == "" {
 		return "", errors.New("no api key configured")
 	}
@@ -56,7 +56,7 @@ func (w WebSearchTool) Run(parameters map[string]interface{}) (string, error) {
 	return "", errors.New("all search providers failed")
 }
 
-func (w WebSearchTool) tavilySearch(query string) (string, error) {
+func (w *WebSearchTool) tavilySearch(query string) (string, error) {
 	reqBody, _ := json.Marshal(map[string]interface{}{
 		"api_key":      w.tavilyApiKey,
 		"query":        query,
@@ -93,7 +93,7 @@ func (w WebSearchTool) tavilySearch(query string) (string, error) {
 	return result.format(), nil
 }
 
-func (w WebSearchTool) serpSearch(query string) (string, error) {
+func (w *WebSearchTool) serpSearch(query string) (string, error) {
 	url := fmt.Sprintf(
 		"https://serpapi.com/search?api_key=%s&q=%s&engine=google&num=5",
 		w.serpApiKey, query,
@@ -136,7 +136,7 @@ type tavilyResponse struct {
 	Results []tavilyResult `json:"results"`
 }
 
-func (r tavilyResponse) format() string {
+func (r *tavilyResponse) format() string {
 	var sb strings.Builder
 	if r.Answer != "" {
 		sb.WriteString(r.Answer)
@@ -161,7 +161,7 @@ type serpResponse struct {
 	OrganicResults []serpResult `json:"organic_results"`
 }
 
-func (r serpResponse) format() string {
+func (r *serpResponse) format() string {
 	var sb strings.Builder
 	for i, item := range r.OrganicResults {
 		if i >= 5 {
@@ -172,7 +172,7 @@ func (r serpResponse) format() string {
 	return strings.TrimSpace(sb.String())
 }
 
-func (w WebSearchTool) Parameters() []tools.ToolParameter {
+func (w *WebSearchTool) Parameters() []tools.ToolParameter {
 	return []tools.ToolParameter{
 		{
 			Name:        "query",
