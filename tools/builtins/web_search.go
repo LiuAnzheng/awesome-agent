@@ -72,7 +72,13 @@ func (w WebSearchTool) tavilySearch(query string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("tavily request failed: %w", err)
 	}
-	defer resp.Body.Close()
+
+	defer func(resp *http.Response) {
+		e := resp.Body.Close()
+		if e != nil {
+			return
+		}
+	}(resp)
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("tavily returned status %d", resp.StatusCode)
@@ -97,7 +103,13 @@ func (w WebSearchTool) serpSearch(query string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("serpapi request failed: %w", err)
 	}
-	defer resp.Body.Close()
+
+	defer func(resp *http.Response) {
+		e := resp.Body.Close()
+		if e != nil {
+			return
+		}
+	}(resp)
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("serpapi returned status %d", resp.StatusCode)
