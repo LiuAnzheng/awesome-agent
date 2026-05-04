@@ -46,10 +46,6 @@ func (c *openAIHTTPClient) chatComplete(messages []Message, config *Config, tool
 		reqBody["tool_choice"] = "auto"
 	}
 
-	if config.Debug {
-		logger.Printf("llm request body: %v", reqBody)
-	}
-
 	body, _ := json.Marshal(reqBody)
 
 	req, _ := http.NewRequest("POST", c.baseURL+"/chat/completions", bytes.NewReader(body))
@@ -119,10 +115,6 @@ func (c *openAIHTTPClient) chatStream(ctx context.Context, messages []Message, c
 		if len(tools) > 0 {
 			reqBody["tools"] = tools
 			reqBody["tool_choice"] = "auto"
-		}
-
-		if config.Debug {
-			logger.Printf("llm request body: %v", reqBody)
 		}
 
 		body, _ := json.Marshal(reqBody)
