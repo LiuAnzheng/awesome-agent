@@ -70,7 +70,7 @@ func (ra *ReActAgent) Run(inputText string) (string, error) {
 		return finalAnswer, nil
 	}
 
-	return "抱歉，我无法在限定步数内完成这个任务。", nil
+	return "unable to complete the task within the maximum steps", nil
 }
 
 func (ra *ReActAgent) buildMessages() []core.Message {
