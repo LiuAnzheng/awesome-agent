@@ -112,7 +112,7 @@ func truncate(s string, max int) string {
 
 func NewReActAgent(name string,
 	llm *core.AwesomeLLMClient,
-	config core.Config,
+	config core.AgentConfig,
 	toolRegistry *tools.ToolRegistry,
 	maxSteps int64,
 	systemPrompt string) *ReActAgent {

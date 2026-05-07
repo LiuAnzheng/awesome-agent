@@ -1,6 +1,6 @@
 package core
 
-var DefaultConfig = Config{
+var DefaultAgentConfig = AgentConfig{
 	Temperature:      0.7,
 	MaxTokens:        1024,
 	TopP:             1.0,
@@ -9,7 +9,7 @@ var DefaultConfig = Config{
 	MaxHistoryLength: 1024,
 }
 
-type Config struct {
+type AgentConfig struct {
 	Temperature     float64
 	MaxTokens       int64
 	TopP            float64

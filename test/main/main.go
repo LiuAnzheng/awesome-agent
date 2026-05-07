@@ -40,7 +40,7 @@ func testReact() {
 	registry.Register(webSearch)
 
 	// 创建ReAct智能体
-	agent := agents.NewReActAgent("react-agent", llm, core.DefaultConfig, registry, 1024, "")
+	agent := agents.NewReActAgent("react-agent", llm, core.DefaultAgentConfig, registry, 1024, "")
 
 	// 运行
 	ans, err := agent.Run("mac book最新的型号都有哪些？")

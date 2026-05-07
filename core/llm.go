@@ -22,7 +22,7 @@ func newOpenAIHTTPClient(baseURL, apiKey, model string) *openAIHTTPClient {
 	return &openAIHTTPClient{baseURL: baseURL, apiKey: apiKey, model: model}
 }
 
-func (c *openAIHTTPClient) chatComplete(messages []Message, config *Config, tools []map[string]interface{}) (Message, FinishReasonType, error) {
+func (c *openAIHTTPClient) chatComplete(messages []Message, config *AgentConfig, tools []map[string]interface{}) (Message, FinishReasonType, error) {
 	if messages == nil || len(messages) == 0 {
 		return Message{}, "", errors.New("no messages")
 	}
@@ -85,7 +85,7 @@ func (c *openAIHTTPClient) chatComplete(messages []Message, config *Config, tool
 	return result.Choices[0].Message, finishReason, nil
 }
 
-func (c *openAIHTTPClient) chatStream(ctx context.Context, messages []Message, config *Config, tools []map[string]interface{}) <-chan StreamChunk {
+func (c *openAIHTTPClient) chatStream(ctx context.Context, messages []Message, config *AgentConfig, tools []map[string]interface{}) <-chan StreamChunk {
 	ch := make(chan StreamChunk)
 	if messages == nil || len(messages) == 0 {
 		c.sendToChan(ctx, ch, StreamChunk{Err: fmt.Errorf("no messages")})
@@ -208,11 +208,11 @@ type LLMConfig struct {
 	BaseURL  string
 }
 
-func (llmClient *AwesomeLLMClient) ChatComplete(messages []Message, config *Config, tools []map[string]interface{}) (Message, FinishReasonType, error) {
+func (llmClient *AwesomeLLMClient) ChatComplete(messages []Message, config *AgentConfig, tools []map[string]interface{}) (Message, FinishReasonType, error) {
 	return llmClient.httpClient.chatComplete(messages, config, tools)
 }
 
-func (llmClient *AwesomeLLMClient) ChatStream(ctx context.Context, messages []Message, config *Config, tools []map[string]interface{}) <-chan StreamChunk {
+func (llmClient *AwesomeLLMClient) ChatStream(ctx context.Context, messages []Message, config *AgentConfig, tools []map[string]interface{}) <-chan StreamChunk {
 	return llmClient.httpClient.chatStream(ctx, messages, config, tools)
 }
 

@@ -36,7 +36,7 @@ type BaseAgent struct {
 	LLM          AwesomeLLMClient
 	SystemPrompt string
 	history      []Message
-	Config       Config
+	Config       AgentConfig
 }
 
 func (agent *BaseAgent) AddMessage(message Message) {
