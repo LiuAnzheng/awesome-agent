@@ -47,7 +47,7 @@ func ToolToOpenAISchema(tool Tool) map[string]interface{} {
 			prop["description"] = fmt.Sprintf("%s (Default：%v)", param.Description, param.Default)
 		}
 
-		if param.Type == ParamArray {
+		if param.Type == ParamArray && param.ItemsType != "" {
 			prop["items"] = map[string]string{
 				"type": string(param.ItemsType),
 			}
