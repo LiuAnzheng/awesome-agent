@@ -44,7 +44,7 @@ func ToolToOpenAISchema(tool Tool) map[string]interface{} {
 		}
 
 		if param.Default != nil {
-			prop["description"] = fmt.Sprintf("%s (默认：%v)", param.Description, param.Default)
+			prop["description"] = fmt.Sprintf("%s (Default：%v)", param.Description, param.Default)
 		}
 
 		if param.Type == ParamArray {
