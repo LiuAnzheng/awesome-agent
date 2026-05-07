@@ -24,7 +24,8 @@ func (w *WebSearchTool) Name() string {
 }
 
 func (w *WebSearchTool) Description() string {
-	return "搜索引擎工具，当用户需要实时信息或互联网信息时，应使用该工具"
+	return "Search engine tools should be utilized when users require " +
+		"real-time information or Internet-related information"
 }
 
 func (w *WebSearchTool) Run(parameters map[string]interface{}) (string, error) {
@@ -179,7 +180,7 @@ func (w *WebSearchTool) Parameters() []tools.ToolParameter {
 		{
 			Name:        "query",
 			Type:        tools.ParamString,
-			Description: "搜索关键词",
+			Description: "search keywords",
 			Required:    true,
 		},
 	}
