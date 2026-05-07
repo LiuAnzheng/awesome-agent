@@ -6,7 +6,6 @@ var DefaultConfig = Config{
 	TopP:             1.0,
 	OpenAIExtraInfo:  nil,
 	Debug:            true,
-	LogLevel:         "debug",
 	MaxHistoryLength: 1024,
 }
 
@@ -17,6 +16,5 @@ type Config struct {
 	OpenAIExtraInfo map[string]interface{}
 
 	Debug            bool
-	LogLevel         string
 	MaxHistoryLength int64
 }
