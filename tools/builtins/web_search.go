@@ -80,7 +80,10 @@ func (w *WebSearchTool) tavilySearch(query string) (string, error) {
 		return "", fmt.Errorf("tavily returned status %d", resp.StatusCode)
 	}
 
-	data, _ := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("tavily response body read failed: %w", err)
+	}
 	var result tavilyResponse
 	if err := json.Unmarshal(data, &result); err != nil {
 		return "", fmt.Errorf("tavily parse failed: %w", err)
@@ -111,7 +114,10 @@ func (w *WebSearchTool) serpSearch(query string) (string, error) {
 		return "", fmt.Errorf("serpapi returned status %d", resp.StatusCode)
 	}
 
-	data, _ := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("serpapi response body read failed: %w", err)
+	}
 	var result serpResponse
 	if err := json.Unmarshal(data, &result); err != nil {
 		return "", fmt.Errorf("serpapi parse failed: %w", err)
