@@ -226,6 +226,9 @@ func NewAwesomeLLMClient(config *LLMConfig) (*AwesomeLLMClient, error) {
 	// TODO 模型供应商智能检测
 	llmClient := &AwesomeLLMClient{}
 
+	llmClient.Provider = config.Provider
+	llmClient.ModelID = config.ModelID
+
 	if config.APIKey != "" {
 		llmClient.APIKey = config.APIKey
 	} else {
