@@ -18,7 +18,7 @@ type ReActAgent struct {
 	MaxSteps     int64
 }
 
-const reactSystemPrompt = `你是一个具备推理和行动能力的AI助手。请通过"思考→行动→观察"的循环来解决问题。
+const DefaultReActSystemPrompt = `你是一个具备推理和行动能力的AI助手。请通过"思考→行动→观察"的循环来解决问题。
 
 ## 工作流程
 1. 先输出你的思考分析
@@ -82,9 +82,6 @@ func (ra *ReActAgent) Run(inputText string) (string, error) {
 
 func (ra *ReActAgent) buildMessages() []core.Message {
 	messages := make([]core.Message, 0, len(ra.History())+1)
-	if ra.SystemPrompt == "" {
-		ra.SystemPrompt = reactSystemPrompt
-	}
 	messages = append(messages, core.Message{Role: "system", Content: ra.SystemPrompt})
 	for _, msg := range ra.History() {
 		messages = append(messages, msg)
@@ -121,7 +118,7 @@ func NewReActAgent(name string,
 	systemPrompt string) *ReActAgent {
 
 	if systemPrompt == "" {
-		systemPrompt = reactSystemPrompt
+		systemPrompt = DefaultReActSystemPrompt
 	}
 	ra := &ReActAgent{
 		BaseAgent: core.BaseAgent{
