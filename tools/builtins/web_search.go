@@ -42,7 +42,6 @@ func (w *WebSearchTool) Run(parameters map[string]interface{}) (string, error) {
 		if err == nil {
 			return result, nil
 		}
-		return "", fmt.Errorf("tavily search failed: %w", err)
 	}
 
 	if w.serpApiKey != "" {
