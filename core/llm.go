@@ -225,17 +225,6 @@ type StreamChunk struct {
 func NewAwesomeLLMClient(config *LLMConfig) (*AwesomeLLMClient, error) {
 	// TODO 模型供应商智能检测
 	llmClient := &AwesomeLLMClient{}
-	if config.ModelID != "" {
-		llmClient.ModelID = config.ModelID
-	} else {
-		llmClient.ModelID = ""
-	}
-
-	if config.Provider != "" {
-		llmClient.Provider = config.Provider
-	} else {
-		llmClient.Provider = ""
-	}
 
 	if config.APIKey != "" {
 		llmClient.APIKey = config.APIKey
