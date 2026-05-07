@@ -52,7 +52,7 @@ func (ra *ReActAgent) Run(inputText string) (string, error) {
 		}
 
 		if finishReason == core.ToolCalls && len(resp.ToolCalls) > 0 {
-			if ra.Config.Debug {
+			if core.AppCfg.Debug {
 				logger.Printf("step %d ---- %s, calling: %s", step+1,
 					truncate(extractString(resp.Content), 80),
 					resp.ToolCalls[0].Function.Name)
@@ -70,7 +70,7 @@ func (ra *ReActAgent) Run(inputText string) (string, error) {
 
 		// 无工具调用 = 最终答案
 		finalAnswer := extractString(resp.Content)
-		if ra.Config.Debug {
+		if core.AppCfg.Debug {
 			logger.Printf("step %d — final answer: %s", step, truncate(finalAnswer, 80))
 		}
 		ra.AddMessage(resp)

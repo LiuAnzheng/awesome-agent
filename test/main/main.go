@@ -6,7 +6,6 @@ import (
 	"awesome-agent/tools"
 	"awesome-agent/tools/builtins"
 	"fmt"
-	"os"
 )
 
 func main() {
@@ -14,15 +13,14 @@ func main() {
 }
 
 func testReact() {
+	// 加载配置文件
+	e := core.LoadConfig("app-config.yaml")
+	if e != nil {
+		panic(e)
+	}
+
 	// 创建LLM客户端
-	llm, err := core.NewAwesomeLLMClient(
-		&core.LLMConfig{
-			ModelID:  "deepseek-v4-pro",
-			Provider: "deepseek",
-			APIKey:   os.Getenv("LLM_API_KEY"),
-			BaseURL:  os.Getenv("LLM_BASE_URL"),
-		},
-	)
+	llm, err := core.NewAwesomeLLMClient(core.AppCfg.LLMConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -40,7 +38,7 @@ func testReact() {
 	registry.Register(webSearch)
 
 	// 创建ReAct智能体
-	agent := agents.NewReActAgent("react-agent", llm, core.DefaultAgentConfig, registry, 1024, "")
+	agent := agents.NewReActAgent("react-agent", llm, core.AppCfg.AgentConfig, registry, 1024, "")
 
 	// 运行
 	ans, err := agent.Run("mac book最新的型号都有哪些？")

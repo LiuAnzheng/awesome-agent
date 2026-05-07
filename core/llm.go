@@ -201,13 +201,6 @@ type AwesomeLLMClient struct {
 	BaseURL  string
 }
 
-type LLMConfig struct {
-	ModelID  string
-	Provider string
-	APIKey   string
-	BaseURL  string
-}
-
 func (llmClient *AwesomeLLMClient) ChatComplete(messages []Message, config *AgentConfig, tools []map[string]interface{}) (Message, FinishReasonType, error) {
 	return llmClient.httpClient.chatComplete(messages, config, tools)
 }
@@ -222,8 +215,7 @@ type StreamChunk struct {
 	Err          error
 }
 
-func NewAwesomeLLMClient(config *LLMConfig) (*AwesomeLLMClient, error) {
-	// TODO 模型供应商智能检测
+func NewAwesomeLLMClient(config LLMConfig) (*AwesomeLLMClient, error) {
 	llmClient := &AwesomeLLMClient{}
 
 	llmClient.Provider = config.Provider
