@@ -32,10 +32,7 @@ func (w *WebSearchTool) Run(parameters map[string]interface{}) (string, error) {
 		return "", errors.New("no api key configured")
 	}
 
-	query, ok := parameters["query"].(string)
-	if !ok || query == "" {
-		return "", errors.New("query is required")
-	}
+	query, _ := parameters["query"].(string)
 
 	if w.tavilyApiKey != "" {
 		result, err := w.tavilySearch(query)
