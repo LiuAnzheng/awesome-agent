@@ -5,7 +5,11 @@ import (
 	"awesome-agent/tools"
 	"errors"
 	"fmt"
+	"log"
+	"os"
 )
+
+var logger = log.New(os.Stderr, "[agents] ", log.LstdFlags|log.Lshortfile)
 
 type ReActAgent struct {
 	core.BaseAgent
