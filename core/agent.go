@@ -5,6 +5,30 @@ import (
 	"os"
 )
 
+type FinishReasonType string
+
+const (
+	Stop          FinishReasonType = "stop"
+	Length        FinishReasonType = "length"
+	ToolCalls     FinishReasonType = "tool_calls"
+	ContentFilter FinishReasonType = "content_filter"
+)
+
+func ParseFinishReason(value string) FinishReasonType {
+	switch value {
+	case "stop":
+		return Stop
+	case "length":
+		return Length
+	case "tool_calls":
+		return ToolCalls
+	case "content_filter":
+		return ContentFilter
+	default:
+		return Stop
+	}
+}
+
 var logger = log.New(os.Stderr, "[core] ", log.LstdFlags|log.Lshortfile)
 
 type BaseAgent struct {

@@ -43,12 +43,15 @@ func (ra *ReActAgent) Run(inputText string) (string, error) {
 	schemas := ra.toolSchemas()
 
 	for step := int64(0); step < ra.MaxSteps; step++ {
-		resp, err := ra.LLM.ChatComplete(messages, &ra.Config, schemas)
+		resp, finishReason, err := ra.LLM.ChatComplete(messages, &ra.Config, schemas)
 		if err != nil {
 			return "", errors.New("LLM error: " + err.Error())
 		}
+		if finishReason == core.ContentFilter {
+			return "", errors.New("LLM content filter exception")
+		}
 
-		if len(resp.ToolCalls) > 0 {
+		if finishReason == core.ToolCalls && len(resp.ToolCalls) > 0 {
 			if ra.Config.Debug {
 				logger.Printf("step %d ---- %s, calling: %s", step+1,
 					truncate(extractString(resp.Content), 80),

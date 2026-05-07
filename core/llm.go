@@ -22,9 +22,9 @@ func newOpenAIHTTPClient(baseURL, apiKey, model string) *openAIHTTPClient {
 	return &openAIHTTPClient{baseURL: baseURL, apiKey: apiKey, model: model}
 }
 
-func (c *openAIHTTPClient) chatComplete(messages []Message, config *Config, tools []map[string]interface{}) (Message, error) {
+func (c *openAIHTTPClient) chatComplete(messages []Message, config *Config, tools []map[string]interface{}) (Message, FinishReasonType, error) {
 	if messages == nil || len(messages) == 0 {
-		return Message{}, errors.New("no messages")
+		return Message{}, "", errors.New("no messages")
 	}
 	reqBody := map[string]interface{}{
 		"model":       c.model,
@@ -54,7 +54,7 @@ func (c *openAIHTTPClient) chatComplete(messages []Message, config *Config, tool
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return Message{}, fmt.Errorf("request failed: %w", err)
+		return Message{}, "", fmt.Errorf("request failed: %w", err)
 	}
 
 	defer func(closer io.Closer) {
@@ -63,10 +63,10 @@ func (c *openAIHTTPClient) chatComplete(messages []Message, config *Config, tool
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return Message{}, fmt.Errorf("failed to read response body: %w", err)
+		return Message{}, "", fmt.Errorf("failed to read response body: %w", err)
 	}
 	if resp.StatusCode >= 400 {
-		return Message{}, fmt.Errorf("API error %d: %s", resp.StatusCode, string(data))
+		return Message{}, "", fmt.Errorf("API error %d: %s", resp.StatusCode, string(data))
 	}
 
 	var result struct {
@@ -76,12 +76,13 @@ func (c *openAIHTTPClient) chatComplete(messages []Message, config *Config, tool
 		} `json:"choices"`
 	}
 	if err := json.Unmarshal(data, &result); err != nil {
-		return Message{}, fmt.Errorf("unmarshal failed: %w", err)
+		return Message{}, "", fmt.Errorf("unmarshal failed: %w", err)
 	}
 	if len(result.Choices) == 0 {
-		return Message{}, errors.New("no choices returned")
+		return Message{}, "", errors.New("no choices returned")
 	}
-	return result.Choices[0].Message, nil
+	finishReason := ParseFinishReason(result.Choices[0].FinishReason)
+	return result.Choices[0].Message, finishReason, nil
 }
 
 func (c *openAIHTTPClient) chatStream(ctx context.Context, messages []Message, config *Config, tools []map[string]interface{}) <-chan StreamChunk {
@@ -170,7 +171,7 @@ func (c *openAIHTTPClient) chatStream(ctx context.Context, messages []Message, c
 			}
 			if !c.sendToChan(ctx, ch, StreamChunk{
 				Delta:        raw.Choices[0].Delta,
-				FinishReason: raw.Choices[0].FinishReason,
+				FinishReason: ParseFinishReason(raw.Choices[0].FinishReason),
 			}) {
 				return
 			}
@@ -207,7 +208,7 @@ type LLMConfig struct {
 	BaseURL  string
 }
 
-func (llmClient *AwesomeLLMClient) ChatComplete(messages []Message, config *Config, tools []map[string]interface{}) (Message, error) {
+func (llmClient *AwesomeLLMClient) ChatComplete(messages []Message, config *Config, tools []map[string]interface{}) (Message, FinishReasonType, error) {
 	return llmClient.httpClient.chatComplete(messages, config, tools)
 }
 
@@ -217,7 +218,7 @@ func (llmClient *AwesomeLLMClient) ChatStream(ctx context.Context, messages []Me
 
 type StreamChunk struct {
 	Delta        Message
-	FinishReason string
+	FinishReason FinishReasonType
 	Err          error
 }
 
