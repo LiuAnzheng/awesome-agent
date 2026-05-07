@@ -61,7 +61,10 @@ func (c *openAIHTTPClient) chatComplete(messages []Message, config *Config, tool
 		_ = closer.Close()
 	}(resp.Body)
 
-	data, _ := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return Message{}, fmt.Errorf("failed to read response body: %w", err)
+	}
 	if resp.StatusCode >= 400 {
 		return Message{}, fmt.Errorf("API error %d: %s", resp.StatusCode, string(data))
 	}
@@ -135,7 +138,10 @@ func (c *openAIHTTPClient) chatStream(ctx context.Context, messages []Message, c
 		}(resp.Body)
 
 		if resp.StatusCode >= 400 {
-			data, _ := io.ReadAll(resp.Body)
+			data, e := io.ReadAll(resp.Body)
+			if e != nil {
+				c.sendToChan(ctx, ch, StreamChunk{Err: fmt.Errorf("failed to read response body: %w", e)})
+			}
 			c.sendToChan(ctx, ch, StreamChunk{Err: fmt.Errorf("API error %d: %s", resp.StatusCode, string(data))})
 			return
 		}
