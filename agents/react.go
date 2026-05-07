@@ -82,7 +82,10 @@ func (ra *ReActAgent) Run(inputText string) (string, error) {
 
 func (ra *ReActAgent) buildMessages() []core.Message {
 	messages := make([]core.Message, 0, len(ra.History())+1)
-	messages = append(messages, core.Message{Role: "system", Content: reactSystemPrompt})
+	if ra.SystemPrompt == "" {
+		ra.SystemPrompt = reactSystemPrompt
+	}
+	messages = append(messages, core.Message{Role: "system", Content: ra.SystemPrompt})
 	for _, msg := range ra.History() {
 		messages = append(messages, msg)
 	}
@@ -114,13 +117,18 @@ func NewReActAgent(name string,
 	llm *core.AwesomeLLMClient,
 	config core.Config,
 	toolRegistry *tools.ToolRegistry,
-	maxSteps int64) *ReActAgent {
+	maxSteps int64,
+	systemPrompt string) *ReActAgent {
 
+	if systemPrompt == "" {
+		systemPrompt = reactSystemPrompt
+	}
 	ra := &ReActAgent{
 		BaseAgent: core.BaseAgent{
-			Name:   name,
-			LLM:    *llm,
-			Config: config,
+			Name:         name,
+			LLM:          *llm,
+			Config:       config,
+			SystemPrompt: systemPrompt,
 		},
 		ToolRegistry: toolRegistry,
 		MaxSteps:     maxSteps,
