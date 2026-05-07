@@ -20,7 +20,7 @@ type Chain struct {
 	registry    *ToolRegistry // 执行时从这里取子工具
 }
 
-func NewChain(name string,
+func MustNewChain(name string,
 	description string,
 	inputParams []ToolParameter,
 	steps []ChainStep,
