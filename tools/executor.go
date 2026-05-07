@@ -20,9 +20,6 @@ func (e *ToolExecutor) Execute(toolCalls []core.ToolCall) ([]core.Message, error
 	if e.registry == nil {
 		return nil, errors.New("ToolRegistry has not been initialized")
 	}
-	if len(toolCalls) == 0 {
-		return nil, nil
-	}
 
 	results := make([]core.Message, 0, len(toolCalls))
 	for _, tc := range toolCalls {
