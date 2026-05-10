@@ -220,18 +220,8 @@ func NewAwesomeLLMClient(config LLMConfig) (*AwesomeLLMClient, error) {
 
 	llmClient.Provider = config.Provider
 	llmClient.ModelID = config.ModelID
-
-	if config.APIKey != "" {
-		llmClient.APIKey = config.APIKey
-	} else {
-		return nil, errors.New("API key is required")
-	}
-
-	if config.BaseURL != "" {
-		llmClient.BaseURL = config.BaseURL
-	} else {
-		return nil, errors.New("base URL is required")
-	}
+	llmClient.APIKey = config.APIKey
+	llmClient.BaseURL = config.BaseURL
 
 	llmClient.httpClient = *newOpenAIHTTPClient(llmClient.BaseURL, llmClient.APIKey, llmClient.ModelID)
 	return llmClient, nil
