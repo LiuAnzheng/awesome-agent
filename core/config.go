@@ -35,16 +35,23 @@ type EmbeddingConfig struct {
 }
 
 type VectorStoreConfig struct {
-	Host       string `mapstructure:"host"`
-	Port       int    `mapstructure:"port"`
-	APIKey     string `mapstructure:"api_key"`
-	Collection string `mapstructure:"collection"`
+	Host   string `mapstructure:"host"`
+	Port   int    `mapstructure:"port"`
+	APIKey string `mapstructure:"api_key"`
+}
+
+type GraphConfig struct {
+	URL      string `mapstructure:"url"`
+	DBName   string `mapstructure:"db"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
 }
 
 type MemoryConfig struct {
 	Structured  StructuredConfig  `mapstructure:"structure"`
 	Embedding   EmbeddingConfig   `mapstructure:"embedding"`
 	VectorStore VectorStoreConfig `mapstructure:"vector_store"`
+	Graph       GraphConfig       `mapstructure:"graph"`
 }
 
 type AppConfig struct {
@@ -79,10 +86,15 @@ var AppCfg = AppConfig{
 			BatchSize: 32,
 		},
 		VectorStore: VectorStoreConfig{
-			Host:       "127.0.0.1",
-			Port:       6333,
-			APIKey:     "",
-			Collection: "episodes",
+			Host:   "127.0.0.1",
+			Port:   6333,
+			APIKey: "",
+		},
+		Graph: GraphConfig{
+			URL:      "http://127.0.0.1:7474",
+			DBName:   "neo4j",
+			Username: "neo4j",
+			Password: "neo4j",
 		},
 	},
 	Debug: true,
@@ -123,7 +135,12 @@ func LoadConfig(path string) error {
 	v.SetDefault("awesome-agent.memory.vector_store.host", AppCfg.Memory.VectorStore.Host)
 	v.SetDefault("awesome-agent.memory.vector_store.port", AppCfg.Memory.VectorStore.Port)
 	v.SetDefault("awesome-agent.memory.vector_store.api_key", AppCfg.Memory.VectorStore.APIKey)
-	v.SetDefault("awesome-agent.memory.vector_store.collection", AppCfg.Memory.VectorStore.Collection)
+
+	// Memory.Graph
+	v.SetDefault("awesome-agent.memory.graph.url", AppCfg.Memory.Graph.URL)
+	v.SetDefault("awesome-agent.memory.graph.db", AppCfg.Memory.Graph.DBName)
+	v.SetDefault("awesome-agent.memory.graph.username", AppCfg.Memory.Graph.Username)
+	v.SetDefault("awesome-agent.memory.graph.password", AppCfg.Memory.Graph.Password)
 
 	// Debug
 	v.SetDefault("awesome-agent.debug", AppCfg.Debug)

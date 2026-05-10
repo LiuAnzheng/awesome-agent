@@ -14,7 +14,11 @@ awesome-agent:
       dimension: 1024
       batch_size: 32
     vector_store:
-      host: "127.0.0.1"
+      host: "192.168.187.100"
       port: 6333
       api_key: ""
-      collection: "episodes"
+    graph:
+      url: "http://192.168.187.100:7474"
+      db: "neo4j"
+      username: "neo4j"
+      password: ${NEO4J_PASSWORD}
