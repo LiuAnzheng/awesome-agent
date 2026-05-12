@@ -132,6 +132,8 @@ func NewReActAgent(name string,
 	}
 	if toolRegistry != nil {
 		ra.Executor = tools.NewToolExecutor(toolRegistry)
+	} else {
+		logger.Printf("[WARNING] No tool registry found")
 	}
 	return ra
 }
