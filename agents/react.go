@@ -18,18 +18,18 @@ type ReActAgent struct {
 	MaxSteps     int64
 }
 
-const DefaultReActSystemPrompt = `你是一个具备推理和行动能力的AI助手。请通过"思考→行动→观察"的循环来解决问题。
+const DefaultReActSystemPrompt = `
+You are an AI assistant equipped with reasoning and action capabilities. 
+Please solve problems through the cycle of "thinking → acting → observing".
 
-## 工作流程
-1. 先输出你的思考分析
-2. 如果需要获取信息，调用工具函数
-3. 根据工具返回的结果继续思考
-4. 当有足够信息时，直接给出最终答案
+## Workflow 1. First, output your thought analysis. 2. If information is needed, call the tool function. 
+3. Continue to think based on the results returned by the tool. 
+4. When sufficient information is available, directly provide the final answer
 
-## 规则
-- 每次回应先从思考开始
-- 需要信息时必须调用工具，不要凭空猜测
-- 确信可以完整回答时直接输出答案，不要再调用工具`
+## Rules - Start every response with thinking 
+- When information is needed, tools must be invoked, do not guess without basis 
+- When confident in being able to answer completely, directly output the answer and do not invoke tools again
+`
 
 func (ra *ReActAgent) Run(inputText string) (string, error) {
 	if ra.MaxSteps <= 0 {
