@@ -22,36 +22,17 @@ type AgentConfig struct {
 	OpenAIExtraInfo map[string]string `mapstructure:"open_ai_extra_info"`
 }
 
-type StructuredConfig struct {
-	DBPath string `mapstructure:"db_path"`
-}
-
-type EmbeddingConfig struct {
-	ModelID   string `mapstructure:"model_id"`
-	APIKey    string `mapstructure:"api_key"`
-	BaseURL   string `mapstructure:"base_url"`
-	Dimension uint64 `mapstructure:"dimension"`
-	BatchSize int    `mapstructure:"batch_size"`
-}
-
-type VectorStoreConfig struct {
-	Host   string `mapstructure:"host"`
-	Port   int    `mapstructure:"port"`
-	APIKey string `mapstructure:"api_key"`
-}
-
-type GraphConfig struct {
-	URL      string `mapstructure:"url"`
-	DBName   string `mapstructure:"db"`
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
+// DriverConfig 通用驱动配置：driver 声明实现，options 为驱动专用参数
+type DriverConfig struct {
+	Driver  string                 `mapstructure:"driver"`
+	Options map[string]interface{} `mapstructure:"options"`
 }
 
 type MemoryConfig struct {
-	Structured  StructuredConfig  `mapstructure:"structure"`
-	Embedding   EmbeddingConfig   `mapstructure:"embedding"`
-	VectorStore VectorStoreConfig `mapstructure:"vector_store"`
-	Graph       GraphConfig       `mapstructure:"graph"`
+	Structured  DriverConfig `mapstructure:"structure"`
+	Embedding   DriverConfig `mapstructure:"embedding"`
+	VectorStore DriverConfig `mapstructure:"vector_store"`
+	Graph       DriverConfig `mapstructure:"graph"`
 }
 
 type AppConfig struct {
@@ -75,26 +56,38 @@ var AppCfg = AppConfig{
 		OpenAIExtraInfo: make(map[string]string),
 	},
 	Memory: MemoryConfig{
-		Structured: StructuredConfig{
-			DBPath: "./data/memory.db",
+		Structured: DriverConfig{
+			Driver: "sqlite",
+			Options: map[string]interface{}{
+				"db_path": "./data/memory.db",
+			},
 		},
-		Embedding: EmbeddingConfig{
-			ModelID:   "text-embedding-3-small",
-			APIKey:    "",
-			BaseURL:   "https://api.openai.com/",
-			Dimension: 1024,
-			BatchSize: 32,
+		Embedding: DriverConfig{
+			Driver: "openai",
+			Options: map[string]interface{}{
+				"model_id":   "text-embedding-3-small",
+				"api_key":    "",
+				"base_url":   "https://api.openai.com/",
+				"dimension":  1024,
+				"batch_size": 32,
+			},
 		},
-		VectorStore: VectorStoreConfig{
-			Host:   "127.0.0.1",
-			Port:   6333,
-			APIKey: "",
+		VectorStore: DriverConfig{
+			Driver: "qdrant",
+			Options: map[string]interface{}{
+				"host":    "127.0.0.1",
+				"port":    6333,
+				"api_key": "",
+			},
 		},
-		Graph: GraphConfig{
-			URL:      "http://127.0.0.1:7474",
-			DBName:   "neo4j",
-			Username: "neo4j",
-			Password: "neo4j",
+		Graph: DriverConfig{
+			Driver: "neo4j",
+			Options: map[string]interface{}{
+				"url":      "http://127.0.0.1:7474",
+				"db":       "neo4j",
+				"username": "neo4j",
+				"password": "neo4j",
+			},
 		},
 	},
 	Debug: true,
@@ -121,26 +114,18 @@ func LoadConfig(path string) error {
 	v.SetDefault("awesome-agent.agent.top_p", AppCfg.AgentConfig.TopP)
 	v.SetDefault("awesome-agent.agent.open_ai_extra_info", AppCfg.AgentConfig.OpenAIExtraInfo)
 
-	// Memory.Structured
-	v.SetDefault("awesome-agent.memory.structure.db_path", AppCfg.Memory.Structured.DBPath)
+	// Memory
+	v.SetDefault("awesome-agent.memory.structure.driver", AppCfg.Memory.Structured.Driver)
+	v.SetDefault("awesome-agent.memory.structure.options", AppCfg.Memory.Structured.Options)
 
-	// Memory.Embedding
-	v.SetDefault("awesome-agent.memory.embedding.model_id", AppCfg.Memory.Embedding.ModelID)
-	v.SetDefault("awesome-agent.memory.embedding.api_key", AppCfg.Memory.Embedding.APIKey)
-	v.SetDefault("awesome-agent.memory.embedding.base_url", AppCfg.Memory.Embedding.BaseURL)
-	v.SetDefault("awesome-agent.memory.embedding.dimension", AppCfg.Memory.Embedding.Dimension)
-	v.SetDefault("awesome-agent.memory.embedding.batch_size", AppCfg.Memory.Embedding.BatchSize)
+	v.SetDefault("awesome-agent.memory.embedding.driver", AppCfg.Memory.Embedding.Driver)
+	v.SetDefault("awesome-agent.memory.embedding.options", AppCfg.Memory.Embedding.Options)
 
-	// Memory.VectorStore
-	v.SetDefault("awesome-agent.memory.vector_store.host", AppCfg.Memory.VectorStore.Host)
-	v.SetDefault("awesome-agent.memory.vector_store.port", AppCfg.Memory.VectorStore.Port)
-	v.SetDefault("awesome-agent.memory.vector_store.api_key", AppCfg.Memory.VectorStore.APIKey)
+	v.SetDefault("awesome-agent.memory.vector_store.driver", AppCfg.Memory.VectorStore.Driver)
+	v.SetDefault("awesome-agent.memory.vector_store.options", AppCfg.Memory.VectorStore.Options)
 
-	// Memory.Graph
-	v.SetDefault("awesome-agent.memory.graph.url", AppCfg.Memory.Graph.URL)
-	v.SetDefault("awesome-agent.memory.graph.db", AppCfg.Memory.Graph.DBName)
-	v.SetDefault("awesome-agent.memory.graph.username", AppCfg.Memory.Graph.Username)
-	v.SetDefault("awesome-agent.memory.graph.password", AppCfg.Memory.Graph.Password)
+	v.SetDefault("awesome-agent.memory.graph.driver", AppCfg.Memory.Graph.Driver)
+	v.SetDefault("awesome-agent.memory.graph.options", AppCfg.Memory.Graph.Options)
 
 	// Debug
 	v.SetDefault("awesome-agent.debug", AppCfg.Debug)
