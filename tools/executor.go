@@ -64,6 +64,7 @@ func (e *ToolExecutor) executeOne(tc core.ToolCall) core.Message {
 
 	result, err := tool.Run(params)
 	if err != nil {
+		logger.Printf("failed to execute tool: %v", err)
 		return core.Message{
 			Role:       "tool",
 			Content:    fmt.Sprintf("tool execution failed: %v", err),
