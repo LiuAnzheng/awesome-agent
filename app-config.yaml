@@ -20,13 +20,13 @@ awesome-agent:
     vector_store:
       driver: "qdrant"
       options:
-        host: "127.0.0.1"
+        host: "192.168.187.100"
         port: 6333
         api_key: ""
     graph:
       driver: "neo4j"
       options:
-        url: "http://127.0.0.1:7474"
+        url: "http://192.168.187.100:7474"
         db: "neo4j"
         username: "neo4j"
         password: ${NEO4J_PASSWORD}
