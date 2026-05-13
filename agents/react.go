@@ -56,7 +56,7 @@ func (ra *ReActAgent) Run(inputText string) (string, error) {
 			if core.AppCfg.Debug {
 				sb := strings.Builder{}
 				for _, call := range resp.ToolCalls {
-					sb.WriteString(fmt.Sprintf("%s; ", call.Function.Name))
+					sb.WriteString(fmt.Sprintf("%s ", call.Function.Name))
 				}
 				logger.Printf("step [%d] content [%s] calling [%s]", step, resp.Content, sb.String())
 			}
