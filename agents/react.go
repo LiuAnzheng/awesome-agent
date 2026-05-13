@@ -102,13 +102,6 @@ func extractString(v interface{}) string {
 	return fmt.Sprintf("%v", v)
 }
 
-func truncate(s string, max int) string {
-	if len(s) <= max {
-		return s
-	}
-	return s[:max] + "..."
-}
-
 func NewReActAgent(name string,
 	llm *core.AwesomeLLMClient,
 	config core.AgentConfig,
