@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 var logger = log.New(os.Stderr, "[agents] ", log.LstdFlags|log.Lshortfile)
@@ -53,8 +54,11 @@ func (ra *ReActAgent) Run(inputText string) (string, error) {
 
 		if finishReason == core.ToolCalls && len(resp.ToolCalls) > 0 {
 			if core.AppCfg.Debug {
-				logger.Printf("step %d content %s calling %s", step, resp.Content,
-					resp.ToolCalls[0].Function.Name)
+				sb := strings.Builder{}
+				for _, call := range resp.ToolCalls {
+					sb.WriteString(fmt.Sprintf("%s; ", call.Function.Name))
+				}
+				logger.Printf("step [%d] content [%s] calling [%s]", step, resp.Content, sb.String())
 			}
 			messages = append(messages, resp)
 			toolResults, err := ra.Executor.Execute(resp.ToolCalls)
@@ -70,7 +74,7 @@ func (ra *ReActAgent) Run(inputText string) (string, error) {
 		// 无工具调用 = 最终答案
 		finalAnswer := extractString(resp.Content)
 		if core.AppCfg.Debug {
-			logger.Printf("final answer: %s", finalAnswer)
+			logger.Printf("final answer [%s]", finalAnswer)
 		}
 		ra.AddMessage(resp)
 		return finalAnswer, nil

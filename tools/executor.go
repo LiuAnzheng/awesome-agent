@@ -64,13 +64,14 @@ func (e *ToolExecutor) executeOne(tc core.ToolCall) core.Message {
 
 	result, err := tool.Run(params)
 	if err != nil {
-		logger.Printf("failed to execute tool: %v", err)
+		logger.Printf("failed to execute tool [%v]", err)
 		return core.Message{
 			Role:       "tool",
 			Content:    fmt.Sprintf("tool execution failed: %v", err),
 			ToolCallID: tc.ID,
 		}
 	}
+	logger.Printf("successfully executed tool [%v] result [%s]", tc.Function.Name, result)
 
 	return core.Message{
 		Role:       "tool",
