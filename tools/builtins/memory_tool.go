@@ -93,9 +93,10 @@ MANDATORY save: Every task MUST end with [add]. You are the agent — you must p
 `
 
 type MemoryTool struct {
-	SessionId string
-	Types     []types.MemoryType
-	Manager   *memory.Manager
+	SessionId   string
+	Types       []types.MemoryType
+	Manager     *memory.Manager
+	description string
 }
 
 func NewMemoryTool(
@@ -117,7 +118,7 @@ func NewMemoryTool(
 	if len(memoryTypes) == 0 {
 		mt.Types = []types.MemoryType{types.Working, types.Episodic, types.Semantic, types.Perceptual}
 	}
-	memoryToolDescription += `Currently available memory types include: ` + fmt.Sprintf(" %v ", memoryTypes)
+	mt.description = memoryToolDescription + `Currently available memory types include: ` + fmt.Sprintf(" %v ", memoryTypes)
 	manager, err := memory.NewManager(
 		config,
 		mt.SessionId,
@@ -142,7 +143,7 @@ func (m *MemoryTool) Name() string {
 }
 
 func (m *MemoryTool) Description() string {
-	return memoryToolDescription
+	return m.description
 }
 
 func (m *MemoryTool) Parameters() []tools.ToolParameter {
