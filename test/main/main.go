@@ -6,6 +6,7 @@ import (
 	"awesome-agent/memory/types"
 	"awesome-agent/tools"
 	"awesome-agent/tools/builtins"
+	"context"
 )
 
 func main() {
@@ -27,7 +28,7 @@ func testReact() {
 
 	mt, e := builtins.NewMemoryTool("demo-project",
 		core.AppCfg.Memory,
-		types.AvailableMemoryTypes,
+		[]types.MemoryType{types.Working},
 		nil,
 		nil,
 		nil,
@@ -45,13 +46,15 @@ func testReact() {
 	// 创建ReAct智能体
 	agent := agents.NewReActAgent("react-agent", llm, core.AppCfg.AgentConfig, registry, 1024, "")
 
+	ctx := context.Background()
+
 	// 运行
-	_, err = agent.Run("我的名字是Tom, 你是谁？")
+	_, err = agent.Run(ctx, "我的名字是Tom, 你是谁？")
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = agent.Run("我叫什么名字，你都可以干什么？")
+	_, err = agent.Run(ctx, "我叫什么名字，你都可以干什么？")
 	if err != nil {
 		panic(err)
 	}

@@ -3,6 +3,7 @@ package agents
 import (
 	"awesome-agent/core"
 	"awesome-agent/tools"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -32,7 +33,7 @@ Please solve problems through the cycle of "thinking → acting → observing".
 - When confident in being able to answer completely, directly output the answer and do not invoke tools again
 `
 
-func (ra *ReActAgent) Run(inputText string) (string, error) {
+func (ra *ReActAgent) Run(ctx context.Context, inputText string) (string, error) {
 	if ra.MaxSteps <= 0 {
 		return "", errors.New("MaxSteps must be positive")
 	}
@@ -44,7 +45,7 @@ func (ra *ReActAgent) Run(inputText string) (string, error) {
 	schemas := ra.toolSchemas()
 
 	for step := int64(0); step < ra.MaxSteps; step++ {
-		resp, finishReason, err := ra.LLM.ChatComplete(messages, &ra.Config, schemas)
+		resp, finishReason, err := ra.LLM.ChatComplete(ctx, messages, &ra.Config, schemas)
 		if err != nil {
 			return "", errors.New("LLM error: " + err.Error())
 		}

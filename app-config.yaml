@@ -1,7 +1,7 @@
 awesome-agent:
   llm:
-    model_id: "glm-5.1"
-    provider: "glm-5.1"
+    model_id: "deepseek-v4-pro"
+    provider: "deepseek"
     api_key: ${LLM_API_KEY}
     base_url: ${LLM_BASE_URL}
   memory:

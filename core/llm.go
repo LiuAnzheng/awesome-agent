@@ -22,7 +22,7 @@ func newOpenAIHTTPClient(baseURL, apiKey, model string) *openAIHTTPClient {
 	return &openAIHTTPClient{baseURL: baseURL, apiKey: apiKey, model: model}
 }
 
-func (c *openAIHTTPClient) chatComplete(messages []Message, config *AgentConfig, tools []map[string]interface{}) (Message, FinishReasonType, error) {
+func (c *openAIHTTPClient) chatComplete(ctx context.Context, messages []Message, config *AgentConfig, tools []map[string]interface{}) (Message, FinishReasonType, error) {
 	if messages == nil || len(messages) == 0 {
 		return Message{}, "", errors.New("no messages")
 	}
@@ -48,7 +48,7 @@ func (c *openAIHTTPClient) chatComplete(messages []Message, config *AgentConfig,
 
 	body, _ := json.Marshal(reqBody)
 
-	req, _ := http.NewRequest("POST", c.baseURL+"/chat/completions", bytes.NewReader(body))
+	req, _ := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
@@ -201,8 +201,8 @@ type AwesomeLLMClient struct {
 	BaseURL  string
 }
 
-func (llmClient *AwesomeLLMClient) ChatComplete(messages []Message, config *AgentConfig, tools []map[string]interface{}) (Message, FinishReasonType, error) {
-	return llmClient.httpClient.chatComplete(messages, config, tools)
+func (llmClient *AwesomeLLMClient) ChatComplete(ctx context.Context, messages []Message, config *AgentConfig, tools []map[string]interface{}) (Message, FinishReasonType, error) {
+	return llmClient.httpClient.chatComplete(ctx, messages, config, tools)
 }
 
 func (llmClient *AwesomeLLMClient) ChatStream(ctx context.Context, messages []Message, config *AgentConfig, tools []map[string]interface{}) <-chan StreamChunk {
