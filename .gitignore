@@ -26,4 +26,6 @@ Thumbs.db
 # Git
 .git/
 
+# memory&rag
 data/
+knowledge_base/
