@@ -227,10 +227,6 @@ func (n *Neo4jStore) Close() error {
 	return nil
 }
 
-// ============================================================
-// 内部工具
-// ============================================================
-
 func validateToken(token string) error {
 	if token == "" {
 		return fmt.Errorf("token must not be empty")
@@ -334,10 +330,6 @@ func mapToNode(m map[string]interface{}) store.GraphNode {
 	}
 	return node
 }
-
-// ============================================================
-// Neo4j REST API 数据结构
-// ============================================================
 
 type neo4jRequest struct {
 	Statements []neo4jStatement `json:"statements"`

@@ -216,10 +216,6 @@ func (q *QdrantStore) Close() error {
 	return nil
 }
 
-// ============================================================
-// ID 转换
-// ============================================================
-
 // qdrantNamespace 确保本项目的 UUID v5 不与其他系统冲突
 var qdrantNamespace = func() []byte {
 	h := sha1.Sum([]byte("awesome-agent.qdrant.points"))
@@ -240,10 +236,6 @@ func toPointUUID(id string) string {
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
 		hash[0:4], hash[4:6], hash[6:8], hash[8:10], hash[10:16])
 }
-
-// ============================================================
-// Filter 转换
-// ============================================================
 
 func buildQdrantFilter(filters []store.VectorFilter) (qdrantFilter, error) {
 	var must, mustNot []qdrantCondition
@@ -305,10 +297,6 @@ func (q *QdrantStore) doRequest(ctx context.Context, method string, url string, 
 
 	return q.client.Do(req)
 }
-
-// ============================================================
-// Qdrant REST API 数据结构
-// ============================================================
 
 type qdrantCreateCollectionRequest struct {
 	Vectors qdrantVectorConfig `json:"vectors"`
