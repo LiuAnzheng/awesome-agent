@@ -108,7 +108,7 @@ func extractString(v interface{}) string {
 }
 
 func NewReActAgent(name string,
-	llm *core.AwesomeLLMClient,
+	llm core.LLMInterface,
 	config core.AgentConfig,
 	toolRegistry *tools.ToolRegistry,
 	maxSteps int64,
@@ -120,7 +120,7 @@ func NewReActAgent(name string,
 	ra := &ReActAgent{
 		BaseAgent: core.BaseAgent{
 			Name:         name,
-			LLM:          *llm,
+			LLM:          llm,
 			Config:       config,
 			SystemPrompt: systemPrompt,
 		},

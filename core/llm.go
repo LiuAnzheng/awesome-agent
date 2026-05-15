@@ -192,20 +192,34 @@ func (c *openAIHTTPClient) sendToChan(ctx context.Context, ch chan<- StreamChunk
 	}
 }
 
-type AwesomeLLMClient struct {
+type LLMInterface interface {
+	ChatComplete(ctx context.Context, messages []Message, config *AgentConfig, tools []map[string]interface{}) (Message, FinishReasonType, error)
+
+	ChatStream(ctx context.Context, messages []Message, config *AgentConfig, tools []map[string]interface{}) <-chan StreamChunk
+
+	Provider() string
+}
+
+type AwesomeLLM struct {
 	httpClient openAIHTTPClient
 
 	ModelID  string
-	Provider string
+	provider string
 	APIKey   string
 	BaseURL  string
 }
 
-func (llmClient *AwesomeLLMClient) ChatComplete(ctx context.Context, messages []Message, config *AgentConfig, tools []map[string]interface{}) (Message, FinishReasonType, error) {
+func (llmClient *AwesomeLLM) Provider() string {
+	return llmClient.provider
+}
+
+func (llmClient *AwesomeLLM) ChatComplete(ctx context.Context, messages []Message,
+	config *AgentConfig, tools []map[string]interface{}) (Message, FinishReasonType, error) {
 	return llmClient.httpClient.chatComplete(ctx, messages, config, tools)
 }
 
-func (llmClient *AwesomeLLMClient) ChatStream(ctx context.Context, messages []Message, config *AgentConfig, tools []map[string]interface{}) <-chan StreamChunk {
+func (llmClient *AwesomeLLM) ChatStream(ctx context.Context, messages []Message,
+	config *AgentConfig, tools []map[string]interface{}) <-chan StreamChunk {
 	return llmClient.httpClient.chatStream(ctx, messages, config, tools)
 }
 
@@ -215,10 +229,10 @@ type StreamChunk struct {
 	Err          error
 }
 
-func NewAwesomeLLMClient(config LLMConfig) (*AwesomeLLMClient, error) {
-	llmClient := &AwesomeLLMClient{}
+func NewAwesomeLLM(config LLMConfig) (LLMInterface, error) {
+	llmClient := &AwesomeLLM{}
 
-	llmClient.Provider = config.Provider
+	llmClient.provider = config.Provider
 	llmClient.ModelID = config.ModelID
 	llmClient.APIKey = config.APIKey
 	llmClient.BaseURL = config.BaseURL

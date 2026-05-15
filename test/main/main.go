@@ -21,7 +21,7 @@ func testReact() {
 	}
 
 	// 创建LLM客户端
-	llm, err := core.NewAwesomeLLMClient(core.AppCfg.LLMConfig)
+	llm, err := core.NewAwesomeLLM(core.AppCfg.LLMConfig)
 	if err != nil {
 		panic(err)
 	}

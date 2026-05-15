@@ -33,7 +33,7 @@ var logger = log.New(os.Stderr, "[core] ", log.LstdFlags|log.Lshortfile)
 
 type BaseAgent struct {
 	Name         string
-	LLM          AwesomeLLMClient
+	LLM          LLMInterface
 	SystemPrompt string
 	history      []Message
 	Config       AgentConfig
@@ -51,5 +51,5 @@ func (agent *BaseAgent) History() []Message {
 	return history
 }
 func (agent *BaseAgent) String() string {
-	return "Agent name:" + agent.Name + " Provider:" + agent.LLM.Provider
+	return "Agent name:" + agent.Name + " Provider:" + agent.LLM.Provider()
 }
