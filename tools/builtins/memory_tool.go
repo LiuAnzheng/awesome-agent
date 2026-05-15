@@ -107,7 +107,7 @@ func NewMemoryTool(
 	structuredStore store.StructuredStore,
 	embeddingService store.EmbeddingService,
 	graphStore store.GraphStore,
-) (*MemoryTool, error) {
+) (tools.Tool, error) {
 	mt := &MemoryTool{
 		SessionId: sessionId,
 		Types:     memoryTypes,

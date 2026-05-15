@@ -186,7 +186,7 @@ func (w *WebSearchTool) Parameters() []tools.ToolParameter {
 	}
 }
 
-func NewWebSearchTool(tavilyApiKey, serpApiKey string) (*WebSearchTool, error) {
+func NewWebSearchTool(tavilyApiKey, serpApiKey string) (tools.Tool, error) {
 	if tavilyApiKey == "" && serpApiKey == "" && os.Getenv("TAVILY_API_KEY") == "" && os.Getenv("SERPAPI_API_KEY") == "" {
 		return nil, errors.New(`at least one api key is required
 								1. Tavily API: os env TAVILY_API_KEY
