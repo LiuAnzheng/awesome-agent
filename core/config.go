@@ -35,11 +35,17 @@ type MemoryConfig struct {
 	Graph       DriverConfig `mapstructure:"graph"`
 }
 
+type RAGConfig struct {
+	MaxDocSize int64  `mapstructure:"max_doc_size"`
+	Collection string `mapstructure:"collection"`
+}
+
 type AppConfig struct {
 	LLMConfig   LLMConfig    `mapstructure:"llm"`
 	AgentConfig AgentConfig  `mapstructure:"agent"`
 	Memory      MemoryConfig `mapstructure:"memory"`
 	Debug       bool         `mapstructure:"debug"`
+	RAGConfig   RAGConfig    `mapstructure:"rag"`
 }
 
 var AppCfg = AppConfig{
@@ -90,6 +96,10 @@ var AppCfg = AppConfig{
 			},
 		},
 	},
+	RAGConfig: RAGConfig{
+		MaxDocSize: 50 * 1024 * 1024,
+		Collection: "rag",
+	},
 	Debug: true,
 }
 
@@ -126,6 +136,9 @@ func LoadConfig(path string) error {
 
 	v.SetDefault("awesome-agent.memory.graph.driver", AppCfg.Memory.Graph.Driver)
 	v.SetDefault("awesome-agent.memory.graph.options", AppCfg.Memory.Graph.Options)
+
+	v.SetDefault("awesome-agent.rag.max_doc_size", AppCfg.RAGConfig.MaxDocSize)
+	v.SetDefault("awesome-agent.rag.collection", AppCfg.RAGConfig.Collection)
 
 	// Debug
 	v.SetDefault("awesome-agent.debug", AppCfg.Debug)

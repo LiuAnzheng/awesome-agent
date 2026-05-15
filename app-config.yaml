@@ -4,6 +4,9 @@ awesome-agent:
     provider: "deepseek"
     api_key: ${LLM_API_KEY}
     base_url: ${LLM_BASE_URL}
+  rag:
+    max_doc_size: 52428800
+    collection: "rag"
   memory:
     structure:
       driver: "sqlite"
