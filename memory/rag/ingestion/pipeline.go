@@ -20,6 +20,27 @@ import (
 	"github.com/google/uuid"
 )
 
+// http4xxCodes HTTP 4xx 客户端错误状态码（排除 429 Too Many Requests，该错误可重试）
+var http4xxCodes = map[string]bool{
+	"400": true, "401": true, "402": true, "403": true, "404": true,
+	"405": true, "406": true, "407": true, "408": true, "409": true,
+	"410": true, "411": true, "412": true, "413": true, "414": true,
+	"415": true, "416": true, "417": true, "418": true, "421": true,
+	"422": true, "423": true, "424": true, "425": true, "426": true,
+	"428": true, "431": true, "451": true,
+}
+
+// isNonRetryableHTTPError 检查错误是否为不可重试的 HTTP 4xx 错误
+func isNonRetryableHTTPError(err error) bool {
+	msg := err.Error()
+	for code := range http4xxCodes {
+		if strings.Contains(msg, "status "+code) {
+			return true
+		}
+	}
+	return false
+}
+
 type IngestOptions struct {
 	ChunkSize    int
 	ChunkOverlap int
@@ -246,6 +267,12 @@ func embedWithRetry(ctx context.Context, svc store.EmbeddingService, texts []str
 			return vectors, nil
 		}
 		lastErr = err
+
+		// 4xx 客户端错误不可恢复，不重试
+		if isNonRetryableHTTPError(err) {
+			return nil, err
+		}
+
 		if attempt < maxRetries-1 {
 			select {
 			case <-ctx.Done():
