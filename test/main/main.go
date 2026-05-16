@@ -7,6 +7,7 @@ import (
 	"awesome-agent/tools/builtins"
 	"context"
 	"fmt"
+	"log/slog"
 )
 
 func main() {
@@ -14,6 +15,9 @@ func main() {
 }
 
 func testReact() {
+	// 日志级别
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+
 	// 加载配置文件
 	e := core.LoadConfig("app-config.yaml")
 	if e != nil {

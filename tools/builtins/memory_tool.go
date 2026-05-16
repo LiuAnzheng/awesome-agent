@@ -8,14 +8,11 @@ import (
 	"awesome-agent/tools"
 	"encoding/json"
 	"fmt"
-	"log"
-	"os"
+	"log/slog"
 	"slices"
 	"strconv"
 	"time"
 )
-
-var logger = log.New(os.Stderr, "[builtins] ", log.LstdFlags|log.Lshortfile)
 
 var memoryToolDescription = `Memory tool for storing, searching, managing memories across 3 types: episodic (events with time decay), semantic (knowledge with graph relations), working (short-term context).
 
@@ -175,8 +172,8 @@ func (m *MemoryTool) Run(parameters map[string]interface{}) (string, error) {
 		return "", fmt.Errorf("action is required")
 	}
 
-	logger.Printf("memory action [%s]", action)
-	logger.Printf("memory params [%v]", parameters)
+	slog.Debug("memory action", "action", action)
+	slog.Debug("memory params", "params", parameters)
 
 	switch action {
 	case "add":

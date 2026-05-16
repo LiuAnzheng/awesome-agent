@@ -1,10 +1,5 @@
 package core
 
-import (
-	"log"
-	"os"
-)
-
 type FinishReasonType string
 
 const (
@@ -28,8 +23,6 @@ func ParseFinishReason(value string) FinishReasonType {
 		return Stop
 	}
 }
-
-var logger = log.New(os.Stderr, "[core] ", log.LstdFlags|log.Lshortfile)
 
 type BaseAgent struct {
 	Name         string

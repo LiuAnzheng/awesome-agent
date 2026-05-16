@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 )
 
@@ -64,14 +65,14 @@ func (e *ToolExecutor) executeOne(tc core.ToolCall) core.Message {
 
 	result, err := tool.Run(params)
 	if err != nil {
-		logger.Printf("failed to execute tool [%v]", err)
+		slog.Error("tool execution failed", "error", err)
 		return core.Message{
 			Role:       "tool",
 			Content:    fmt.Sprintf("tool execution failed: %v", err),
 			ToolCallID: tc.ID,
 		}
 	}
-	logger.Printf("successfully executed tool [%v] result [%s]", tc.Function.Name, result)
+	slog.Debug("tool executed", "name", tc.Function.Name, "result", result)
 
 	return core.Message{
 		Role:       "tool",

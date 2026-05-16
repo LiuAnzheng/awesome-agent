@@ -6,12 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"os"
-	"strings"
+	"log/slog"
 )
-
-var logger = log.New(os.Stderr, "[agents] ", log.LstdFlags|log.Lshortfile)
 
 type ReActAgent struct {
 	core.BaseAgent
@@ -54,13 +50,8 @@ func (ra *ReActAgent) Run(ctx context.Context, inputText string) (string, error)
 		}
 
 		if finishReason == core.ToolCalls && len(resp.ToolCalls) > 0 {
-			if core.AppCfg.Debug {
-				sb := strings.Builder{}
-				for _, call := range resp.ToolCalls {
-					sb.WriteString(fmt.Sprintf("%s ", call.Function.Name))
-				}
-				logger.Printf("step [%d] content [%s] calling [%s]", step, resp.Content, sb.String())
-			}
+			slog.Debug("agent step", "step", step, "content", resp.Content,
+				"calling", toolCallNames(resp.ToolCalls))
 			messages = append(messages, resp)
 			toolResults, err := ra.Executor.Execute(resp.ToolCalls)
 			if err != nil {
@@ -74,9 +65,7 @@ func (ra *ReActAgent) Run(ctx context.Context, inputText string) (string, error)
 
 		// 无工具调用 = 最终答案
 		finalAnswer := extractString(resp.Content)
-		if core.AppCfg.Debug {
-			logger.Printf("final answer [%s]", finalAnswer)
-		}
+		slog.Debug("agent final answer", "content", finalAnswer)
 		ra.AddMessage(resp)
 		return finalAnswer, nil
 	}
@@ -107,6 +96,14 @@ func extractString(v interface{}) string {
 	return fmt.Sprintf("%v", v)
 }
 
+func toolCallNames(calls []core.ToolCall) []string {
+	names := make([]string, len(calls))
+	for i, c := range calls {
+		names[i] = c.Function.Name
+	}
+	return names
+}
+
 func NewReActAgent(name string,
 	llm core.LLMInterface,
 	config core.AgentConfig,
@@ -130,7 +127,7 @@ func NewReActAgent(name string,
 	if toolRegistry != nil {
 		ra.Executor = tools.NewToolExecutor(toolRegistry)
 	} else {
-		logger.Printf("[WARNING] No tool registry found")
+		slog.Warn("no tool registry found")
 	}
 	return ra
 }

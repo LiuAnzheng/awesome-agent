@@ -1,11 +1,8 @@
 package tools
 
 import (
-	"log"
-	"os"
+	"log/slog"
 )
-
-var logger = log.New(os.Stderr, "[tools] ", log.LstdFlags|log.Lshortfile)
 
 type ToolRegistry struct {
 	tools map[string]Tool
@@ -22,7 +19,7 @@ func (r *ToolRegistry) Register(t Tool) {
 		r.tools = make(map[string]Tool)
 	}
 	if _, ok := r.tools[t.Name()]; ok {
-		logger.Printf("tool %s already registered, will be replaced", t.Name())
+		slog.Warn("tool already registered, will be replaced", "name", t.Name())
 	}
 	r.tools[t.Name()] = t
 }
