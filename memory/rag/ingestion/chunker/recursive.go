@@ -248,7 +248,7 @@ func emitParagraphChunks(chunks *[]Chunk, paras []string, startPos int, path str
 	bufStart := startPos
 	pos := startPos
 
-	for _, para := range paras {
+	for i, para := range paras {
 		if para == "" {
 			continue
 		}
@@ -265,7 +265,10 @@ func emitParagraphChunks(chunks *[]Chunk, paras []string, startPos int, path str
 			buf.WriteString("\n\n")
 		}
 		buf.WriteString(para)
-		pos += len([]rune(para)) + 2
+		pos += len([]rune(para))
+		if i < len(paras)-1 {
+			pos += 2 // \n\n 分隔符
+		}
 	}
 	if buf.Len() > 0 {
 		*chunks = append(*chunks, makeChunk(path, buf.String(), bufStart, opts))
@@ -277,7 +280,7 @@ func emitLineChunks(chunks *[]Chunk, lines []string, startPos int, path string, 
 	bufStart := startPos
 	pos := startPos
 
-	for _, line := range lines {
+	for i, line := range lines {
 		sep := ""
 		if buf.Len() > 0 {
 			sep = "\n"
@@ -291,7 +294,10 @@ func emitLineChunks(chunks *[]Chunk, lines []string, startPos int, path string, 
 			buf.WriteString("\n")
 		}
 		buf.WriteString(line)
-		pos += len([]rune(line)) + 1
+		pos += len([]rune(line))
+		if i < len(lines)-1 {
+			pos += 1 // \n 分隔符
+		}
 	}
 	if buf.Len() > 0 {
 		*chunks = append(*chunks, makeChunk(path, buf.String(), bufStart, opts))
