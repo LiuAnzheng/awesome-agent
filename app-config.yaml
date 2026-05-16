@@ -19,7 +19,7 @@ awesome-agent:
         api_key: ${EMBEDDING_API_KEY}
         base_url: ${EMBEDDING_BASE_URL}
         dimension: 1024
-        batch_size: 32
+        batch_size: 10
     vector_store:
       driver: "qdrant"
       options:
