@@ -211,9 +211,13 @@ func (r *RAGTool) runSearch(params map[string]interface{}) (string, error) {
 		ChunkIndex int     `json:"chunk_index"`
 	}
 	items := make([]searchItem, 0, topK)
+	skipped := 0
 	for _, r := range results {
 		ck, ok := chunks[r.ID]
 		if !ok {
+			skipped++
+			slog.Warn("rag search: vector exists but chunk record missing",
+				"chunk_id", r.ID, "score", r.Score)
 			continue
 		}
 		items = append(items, searchItem{
@@ -227,6 +231,10 @@ func (r *RAGTool) runSearch(params map[string]interface{}) (string, error) {
 		if len(items) >= topK {
 			break
 		}
+	}
+	if skipped > 0 {
+		slog.Warn("rag search: vector results point to missing chunk records",
+			"skipped", skipped, "total_vector_results", len(results))
 	}
 
 	return jsonResult("searched", map[string]interface{}{
@@ -278,7 +286,9 @@ func (r *RAGTool) fetchChunks(ctx context.Context, ids []string) (map[string]chu
 			Table:      "rag_documents",
 			Conditions: []store.Condition{{Field: "id", Operator: "IN", Value: strSliceToInterface(idList)}},
 		})
-		if err == nil {
+		if err != nil {
+			slog.Warn("rag search: failed to enrich doc names", "error", err)
+		} else {
 			docNames := make(map[string]string, len(docRecords))
 			for _, rec := range docRecords {
 				docNames[getStr(rec, "id")] = getStr(rec, "name")
