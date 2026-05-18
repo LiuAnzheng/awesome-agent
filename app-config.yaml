@@ -8,6 +8,9 @@ awesome-agent:
     max_doc_size: 52428800
     collection: "rag"
   memory:
+    compress:
+      max_items_per_session: 100
+      min_items_to_trigger: 1
     structure:
       driver: "sqlite"
       options:
