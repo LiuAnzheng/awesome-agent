@@ -22,7 +22,7 @@ func newOpenAIHTTPClient(baseURL, apiKey, model string) *openAIHTTPClient {
 	return &openAIHTTPClient{baseURL: baseURL, apiKey: apiKey, model: model}
 }
 
-func (c *openAIHTTPClient) chatComplete(ctx context.Context, messages []Message, config AgentConfig, tools []map[string]interface{}, toolChoice string) (Message, FinishReasonType, error) {
+func (c *openAIHTTPClient) chatComplete(ctx context.Context, messages []Message, config AgentConfig, tools []map[string]interface{}, toolChoice interface{}) (Message, FinishReasonType, error) {
 	if messages == nil || len(messages) == 0 {
 		return Message{}, "", errors.New("no messages")
 	}
@@ -41,7 +41,7 @@ func (c *openAIHTTPClient) chatComplete(ctx context.Context, messages []Message,
 		}
 	}
 
-	if toolChoice == "" {
+	if toolChoice == nil {
 		toolChoice = "auto"
 	}
 	if len(tools) > 0 {
@@ -88,7 +88,7 @@ func (c *openAIHTTPClient) chatComplete(ctx context.Context, messages []Message,
 	return result.Choices[0].Message, finishReason, nil
 }
 
-func (c *openAIHTTPClient) chatStream(ctx context.Context, messages []Message, config AgentConfig, tools []map[string]interface{}, toolChoice string) <-chan StreamChunk {
+func (c *openAIHTTPClient) chatStream(ctx context.Context, messages []Message, config AgentConfig, tools []map[string]interface{}, toolChoice interface{}) <-chan StreamChunk {
 	ch := make(chan StreamChunk)
 	if messages == nil || len(messages) == 0 {
 		c.sendToChan(ctx, ch, StreamChunk{Err: fmt.Errorf("no messages")})
@@ -119,7 +119,7 @@ func (c *openAIHTTPClient) chatStream(ctx context.Context, messages []Message, c
 			}
 		}
 
-		if toolChoice == "" {
+		if toolChoice == nil {
 			toolChoice = "auto"
 		}
 		if len(tools) > 0 {
@@ -199,9 +199,9 @@ func (c *openAIHTTPClient) sendToChan(ctx context.Context, ch chan<- StreamChunk
 }
 
 type LLMInterface interface {
-	ChatComplete(ctx context.Context, messages []Message, tools []map[string]interface{}, tc string) (Message, FinishReasonType, error)
+	ChatComplete(ctx context.Context, messages []Message, tools []map[string]interface{}, toolChoice interface{}) (Message, FinishReasonType, error)
 
-	ChatStream(ctx context.Context, messages []Message, tools []map[string]interface{}, tc string) <-chan StreamChunk
+	ChatStream(ctx context.Context, messages []Message, tools []map[string]interface{}, toolChoice interface{}) <-chan StreamChunk
 
 	Provider() string
 }
@@ -221,12 +221,12 @@ func (llmClient *AwesomeLLM) Provider() string {
 }
 
 func (llmClient *AwesomeLLM) ChatComplete(ctx context.Context, messages []Message,
-	tools []map[string]interface{}, tc string) (Message, FinishReasonType, error) {
+	tools []map[string]interface{}, tc interface{}) (Message, FinishReasonType, error) {
 	return llmClient.httpClient.chatComplete(ctx, messages, llmClient.config, tools, tc)
 }
 
 func (llmClient *AwesomeLLM) ChatStream(ctx context.Context, messages []Message,
-	tools []map[string]interface{}, tc string) <-chan StreamChunk {
+	tools []map[string]interface{}, tc interface{}) <-chan StreamChunk {
 	return llmClient.httpClient.chatStream(ctx, messages, llmClient.config, tools, tc)
 }
 

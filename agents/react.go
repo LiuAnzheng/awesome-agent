@@ -41,7 +41,7 @@ func (ra *ReActAgent) Run(ctx context.Context, inputText string) (string, error)
 	schemas := ra.toolSchemas()
 
 	for step := int64(0); step < ra.MaxSteps; step++ {
-		resp, finishReason, err := ra.LLM.ChatComplete(ctx, messages, schemas, "")
+		resp, finishReason, err := ra.LLM.ChatComplete(ctx, messages, schemas, nil)
 		if err != nil {
 			return "", errors.New("LLM error: " + err.Error())
 		}
