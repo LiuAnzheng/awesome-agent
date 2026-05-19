@@ -29,21 +29,15 @@ type DriverConfig struct {
 }
 
 type MemoryConfig struct {
-	Structured  DriverConfig   `mapstructure:"structure"`
-	Embedding   DriverConfig   `mapstructure:"embedding"`
-	VectorStore DriverConfig   `mapstructure:"vector_store"`
-	Graph       DriverConfig   `mapstructure:"graph"`
-	Compress    CompressConfig `mapstructure:"compress"`
+	Structured  DriverConfig `mapstructure:"structure"`
+	Embedding   DriverConfig `mapstructure:"embedding"`
+	VectorStore DriverConfig `mapstructure:"vector_store"`
+	Graph       DriverConfig `mapstructure:"graph"`
 }
 
 type RAGConfig struct {
 	MaxDocSize int64  `mapstructure:"max_doc_size"`
 	Collection string `mapstructure:"collection"`
-}
-
-type CompressConfig struct {
-	MaxItemsPerSession int `mapstructure:"max_items_per_session"`
-	MinItemsToTrigger  int `mapstructure:"min_items_to_trigger"`
 }
 
 type AppConfig struct {
@@ -67,10 +61,6 @@ var AppCfg = AppConfig{
 		OpenAIExtraInfo: make(map[string]string),
 	},
 	Memory: MemoryConfig{
-		Compress: CompressConfig{
-			MaxItemsPerSession: 30,
-			MinItemsToTrigger:  3,
-		},
 		Structured: DriverConfig{
 			Driver: "sqlite",
 			Options: map[string]interface{}{
@@ -147,9 +137,6 @@ func LoadConfig(path string) error {
 
 	v.SetDefault("awesome-agent.rag.max_doc_size", AppCfg.RAGConfig.MaxDocSize)
 	v.SetDefault("awesome-agent.rag.collection", AppCfg.RAGConfig.Collection)
-
-	v.SetDefault("awesome-agent.memory.compress.max_items_per_session", AppCfg.Memory.Compress.MaxItemsPerSession)
-	v.SetDefault("awesome-agent.memory.compress.min_items_to_trigger", AppCfg.Memory.Compress.MinItemsToTrigger)
 
 	err = v.ReadConfig(strings.NewReader(expanded))
 	if err != nil {
