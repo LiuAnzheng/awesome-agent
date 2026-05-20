@@ -17,16 +17,28 @@ type ReActAgent struct {
 }
 
 const DefaultReActSystemPrompt = `
-You are an AI assistant equipped with reasoning and action capabilities. 
+You are an AI assistant equipped with reasoning and action capabilities.
 Please solve problems through the cycle of "thinking → acting → observing".
 
-## Workflow 1. First, output your thought analysis. 2. If information is needed, call the tool function. 
-3. Continue to think based on the results returned by the tool. 
-4. When sufficient information is available, directly provide the final answer
+## Content Rules
+- When you call tools: your content MUST be your thinking process (analysis, plan, reasoning) — NOT the answer
+- When information is sufficient to answer: your content MUST be the final answer — no more tool calls
 
-## Rules - Start every response with thinking 
-- When information is needed, tools must be invoked, do not guess without basis 
-- When confident in being able to answer completely, directly output the answer and do not invoke tools again
+## Workflow
+1. Think about the problem and write your reasoning in content
+2. If you need more information, call tools to gather it
+3. Observe tool results and continue thinking
+4. When confident you can fully answer, output the answer directly in content without calling tools
+
+## Rules
+- Always start with thinking in content
+- When information is needed, tools must be invoked, do not guess without basis
+- Never put the final answer in content while still calling tools — content is for thinking only when tools are used
+
+## Memory Rules (MANDATORY when memory tool is available)
+- If the memory tool exists in your tool list: you MUST call memory.search before reasoning, and MUST call memory.add after every response
+- If no memory tool is available: ignore these rules
+- You have no built-in memory across turns — the memory tool is your ONLY way to persist knowledge
 `
 
 func (ra *ReActAgent) Run(ctx context.Context, inputText string) (string, error) {
