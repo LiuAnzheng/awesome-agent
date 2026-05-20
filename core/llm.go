@@ -50,7 +50,7 @@ func (c *openAIHTTPClient) chatComplete(ctx context.Context, messages []Message,
 		reqBody["tool_choice"] = toolChoice
 	}
 
-	slog.Debug(fmt.Sprintf("llm request body: %#v", reqBody))
+	slog.Debug("llm request", "body", fmt.Sprintf("%#v", reqBody))
 
 	body, _ := json.Marshal(reqBody)
 

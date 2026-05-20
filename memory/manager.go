@@ -176,8 +176,8 @@ func (m *Manager) compressWorking() {
 		ids[i] = it.ID
 	}
 	wm.RemoveItems(ids)
-	slog.Info(fmt.Sprintf("Memory compression complete[Working -> Episodic]: "+
-		"Compressing %d working memories in total", len(items)))
+	slog.Info("Memory compression complete",
+		"stage", "Working->Episodic", "compressed_count", len(items))
 }
 
 // Search 语义检索，支持跨类型检索
