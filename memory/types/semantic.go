@@ -1,7 +1,6 @@
 package types
 
 import (
-	"awesome-agent/core"
 	"awesome-agent/memory/store"
 	"context"
 	"encoding/json"
@@ -10,7 +9,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type SemanticRelation struct {
@@ -75,17 +73,9 @@ func NewSemanticMemory(
 func (s *SemanticMemory) Add(item MemoryItem) (string, error) {
 	ctx := context.Background()
 
-	if item.ID == "" {
-		item.ID = strconv.FormatInt(time.Now().UnixNano(), 10)
-	}
-	if item.SessionID == "" {
-		item.SessionID = s.sessionID
-	}
 	if item.Importance == 0 {
 		item.Importance = 0.5
 	}
-	now := core.Now()
-	item.CreatedAt = &now
 
 	// 还原为 SemanticItem
 	semantic := memoryItemToSemantic(item)
@@ -163,63 +153,6 @@ func (s *SemanticMemory) Add(item MemoryItem) (string, error) {
 	}
 
 	return semantic.ID, nil
-}
-
-func (s *SemanticMemory) Retrieve(query string, limit int64, metadata map[string]string) ([]MemoryItem, error) {
-	ctx := context.Background()
-
-	params := make(map[string]interface{})
-	var where []string
-
-	if query != "" {
-		params["query"] = query
-		where = append(where, "n.content CONTAINS $query")
-	}
-	// 额外条件
-	if sid, ok := metadata["session_id"]; ok {
-		params["session_id"] = sid
-		where = append(where, "n.session_id = $session_id")
-	}
-	if imp, ok := metadata["min_importance"]; ok {
-		v, err := strconv.ParseFloat(imp, 64)
-		if err == nil {
-			params["min_importance"] = v
-			where = append(where, "n.importance >= $min_importance")
-		}
-	}
-
-	tag, hasTag := metadata["tags"]
-	if hasTag && validateTagName(tag) != nil {
-		hasTag = false
-	}
-
-	var cypher string
-	if hasTag {
-		cypher = fmt.Sprintf("MATCH (n:%s)", tag)
-	} else {
-		cypher = "MATCH (n)"
-	}
-	if len(where) > 0 {
-		cypher += " WHERE " + strings.Join(where, " AND ")
-	}
-	cypher += " RETURN n"
-	if limit > 0 {
-		cypher += " LIMIT " + strconv.FormatInt(limit, 10)
-	}
-
-	rows, err := s.graphStore.Query(ctx, cypher, params)
-	if err != nil {
-		return nil, fmt.Errorf("query graph: %w", err)
-	}
-
-	items := make([]SemanticItem, 0, len(rows))
-	for _, row := range rows {
-		if node, ok := row["n"].(map[string]interface{}); ok {
-			items = append(items, nodeToSemanticItem(node))
-		}
-	}
-	_ = s.populateRelations(ctx, items)
-	return semanticsToMemoryItems(items), nil
 }
 
 func (s *SemanticMemory) Delete(id string) error {
@@ -351,97 +284,6 @@ func (s *SemanticMemory) Search(query string, opts SearchOptions) ([]MemoryItem,
 		}
 	}
 	return items, nil
-}
-
-func (s *SemanticMemory) Forget(strategy ForgotStrategy, threshold float64, maxAgeDays int64) (int, error) {
-	ctx := context.Background()
-
-	if strategy != ImportanceBased {
-		return 0, nil
-	}
-
-	rows, err := s.graphStore.Query(ctx,
-		"MATCH (n) WHERE n.importance < $threshold RETURN n.id AS id",
-		map[string]interface{}{"threshold": threshold},
-	)
-	if err != nil {
-		return 0, err
-	}
-
-	ids := make([]string, 0, len(rows))
-	for _, row := range rows {
-		if id, ok := row["id"].(string); ok && id != "" {
-			ids = append(ids, id)
-		}
-	}
-	if len(ids) == 0 {
-		return 0, nil
-	}
-
-	for _, id := range ids {
-		_ = s.graphStore.DeleteNode(ctx, id)
-	}
-	_ = s.vectorStore.Delete(ctx, s.collection, ids)
-	return len(ids), nil
-}
-
-func (s *SemanticMemory) Reindex(ctx context.Context) error {
-	rows, err := s.graphStore.Query(ctx, "MATCH (n) RETURN n", nil)
-	if err != nil {
-		return err
-	}
-
-	type nodeData struct {
-		id      string
-		summary string
-		props   map[string]interface{}
-	}
-	nodes := make([]nodeData, 0, len(rows))
-	for _, row := range rows {
-		if nodeMap, ok := row["n"].(map[string]interface{}); ok {
-			props, _ := nodeMap["properties"].(map[string]interface{})
-			if props == nil {
-				continue
-			}
-			id := fmt.Sprintf("%v", props["id"])
-			summary := fmt.Sprintf("%v", props["summary"])
-			if summary == "" || summary == "<nil>" {
-				summary = fmt.Sprintf("%v", props["content"])
-			}
-			nodes = append(nodes, nodeData{id: id, summary: summary, props: props})
-		}
-	}
-
-	summaries := make([]string, len(nodes))
-	for i, n := range nodes {
-		summaries[i] = n.summary
-	}
-	vectors, err := s.embeddingSvc.EmbedBatch(ctx, summaries)
-	if err != nil {
-		return fmt.Errorf("embed batch: %w", err)
-	}
-
-	points := make([]store.VectorPoint, len(nodes))
-	for i, n := range nodes {
-		importance, _ := strconv.ParseFloat(fmt.Sprintf("%v", n.props["importance"]), 64)
-		var labels []string
-		if l, ok := n.props["labels"].([]interface{}); ok {
-			for _, ll := range l {
-				if s, ok := ll.(string); ok {
-					labels = append(labels, s)
-				}
-			}
-		}
-		points[i] = store.VectorPoint{
-			ID: n.id, Vector: vectors[i],
-			Payload: map[string]interface{}{
-				"importance": importance,
-				"labels":     labels,
-			},
-		}
-	}
-
-	return s.vectorStore.BatchUpsert(ctx, s.collection, points)
 }
 
 func semanticScore(vectorSim, graphSim, importance float64) float64 {

@@ -1,7 +1,6 @@
 package types
 
 import (
-	"awesome-agent/core"
 	"awesome-agent/memory/store"
 	"context"
 	"encoding/json"
@@ -124,17 +123,9 @@ func (e *EpisodicMemory) Init(ctx context.Context) error {
 func (e *EpisodicMemory) Add(item MemoryItem) (string, error) {
 	ctx := context.Background()
 
-	if item.ID == "" {
-		item.ID = strconv.FormatInt(time.Now().UnixNano(), 10)
-	}
-	if item.SessionID == "" {
-		item.SessionID = e.sessionID
-	}
 	if item.Importance == 0 {
 		item.Importance = 0.5
 	}
-	now := core.Now()
-	item.CreatedAt = &now
 
 	// 还原为 EpisodeItem
 	episode := memoryItemToEpisode(item)
@@ -153,7 +144,7 @@ func (e *EpisodicMemory) Add(item MemoryItem) (string, error) {
 		"summary":    episode.Summary,
 		"importance": episode.Importance,
 		"event_type": string(episode.EventType),
-		"created_at": now.Format(time.RFC3339),
+		"created_at": episode.CreatedAt.Format(time.RFC3339),
 		"metadata":   episode.Metadata,
 	}
 	if err := e.structuredStore.Save(ctx, "episodes", record); err != nil {
@@ -172,7 +163,7 @@ func (e *EpisodicMemory) Add(item MemoryItem) (string, error) {
 		"session_id": episode.SessionID,
 		"event_type": string(episode.EventType),
 		"importance": episode.Importance,
-		"created_at": now.Unix(),
+		"created_at": episode.CreatedAt.Unix(),
 	}
 	if err := e.vectorStore.Upsert(ctx, e.collection, store.VectorPoint{
 		ID: episode.ID, Vector: vec, Payload: payload,
@@ -181,40 +172,6 @@ func (e *EpisodicMemory) Add(item MemoryItem) (string, error) {
 	}
 
 	return episode.ID, nil
-}
-
-func (e *EpisodicMemory) Retrieve(query string, limit int64, metadata map[string]string) ([]MemoryItem, error) {
-	ctx := context.Background()
-	var conditions []store.Condition
-
-	if sid, ok := metadata["session_id"]; ok {
-		conditions = append(conditions, store.Condition{Field: "session_id", Operator: "=", Value: sid})
-	}
-	if et, ok := metadata["event_type"]; ok {
-		conditions = append(conditions, store.Condition{Field: "event_type", Operator: "=", Value: et})
-	}
-	if imp, ok := metadata["min_importance"]; ok {
-		if v, err := strconv.ParseFloat(imp, 64); err == nil {
-			conditions = append(conditions, store.Condition{Field: "importance", Operator: ">=", Value: v})
-		}
-	}
-	if query != "" {
-		conditions = append(conditions, store.Condition{Field: "content", Operator: "LIKE", Value: "%" + query + "%"})
-	}
-
-	records, err := e.structuredStore.Query(ctx, store.Query{
-		Table:      "episodes",
-		Conditions: conditions,
-		OrderBy:    []store.OrderBy{{Field: "created_at", Dir: "DESC"}},
-		Limit:      limit,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("query sqlite: %w", err)
-	}
-
-	episodes := recordsToEpisodes(records)
-	_ = e.populateRelations(ctx, episodes)
-	return episodesToMemoryItems(episodes), nil
 }
 
 func (e *EpisodicMemory) Delete(id string) error {
@@ -341,75 +298,6 @@ func (e *EpisodicMemory) Search(query string, opts SearchOptions) ([]MemoryItem,
 	}
 
 	return items, nil
-}
-
-func (e *EpisodicMemory) Forget(strategy ForgotStrategy, threshold float64, maxAgeDays int64) (int, error) {
-	ctx := context.Background()
-	var conditions []store.Condition
-
-	switch strategy {
-	case ImportanceBased:
-		conditions = append(conditions, store.Condition{
-			Field: "importance", Operator: "<", Value: threshold,
-		})
-	case TimeBased:
-		cutOff := core.Now().Add(-time.Duration(maxAgeDays) * 24 * time.Hour)
-		conditions = append(conditions, store.Condition{
-			Field: "created_at", Operator: "<", Value: cutOff.Format(time.RFC3339),
-		})
-	default:
-		return 0, nil
-	}
-
-	records, err := e.structuredStore.Query(ctx, store.Query{
-		Table: "episodes", Conditions: conditions,
-	})
-	if err != nil {
-		return 0, err
-	}
-	return e.batchDeleteRecords(ctx, records)
-}
-
-func (e *EpisodicMemory) Reindex(ctx context.Context) error {
-	records, err := e.structuredStore.Query(ctx, store.Query{Table: "episodes"})
-	if err != nil {
-		return err
-	}
-
-	summaries := make([]string, len(records))
-	for i, r := range records {
-		summaries[i] = strVal(r["summary"])
-		if summaries[i] == "" {
-			summaries[i] = strVal(r["content"])
-		}
-	}
-
-	vectors, err := e.embeddingSvc.EmbedBatch(ctx, summaries)
-	if err != nil {
-		return fmt.Errorf("embed batch: %w", err)
-	}
-
-	points := make([]store.VectorPoint, len(records))
-	for i, r := range records {
-		importance, _ := strconv.ParseFloat(strVal(r["importance"]), 64)
-		createdAtUnix := int64(0)
-		if t := parseTime(r["created_at"]); t != nil {
-			createdAtUnix = t.Unix()
-		}
-
-		points[i] = store.VectorPoint{
-			ID:     strVal(r["id"]),
-			Vector: vectors[i],
-			Payload: map[string]interface{}{
-				"session_id": strVal(r["session_id"]),
-				"event_type": strVal(r["event_type"]),
-				"importance": importance,
-				"created_at": createdAtUnix,
-			},
-		}
-	}
-
-	return e.vectorStore.BatchUpsert(ctx, e.collection, points)
 }
 
 func episodicScore(vectorSim, timeRecency, importance float64) float64 {

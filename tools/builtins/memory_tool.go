@@ -4,139 +4,43 @@ import (
 	"awesome-agent/core"
 	"awesome-agent/memory"
 	"awesome-agent/memory/store"
+	"awesome-agent/memory/store/impl"
 	"awesome-agent/memory/types"
 	"awesome-agent/tools"
-	"encoding/json"
+	"context"
 	"fmt"
-	"log/slog"
 	"slices"
-	"strconv"
-	"time"
+	"sort"
 )
 
-var memoryToolDescription = `Memory tool for storing, searching, managing memories across 3 types: episodic (events with time decay), semantic (knowledge with graph relations), working (short-term context).
+var memoryToolDescription = `CRITICAL: You have NO persistent memory. Every turn starts from zero. Without this tool, all past context is LOST.
 
-== Actions & Parameters ==
+ALWAYS use this tool every turn:
+1. search(query="keywords") BEFORE answering — recall what you already know
+2. add(content="what you learned", importance=0.5~0.9) AFTER answering — save new knowledge
 
-[add] — Store new memory. params: memory_type*, content*, importance, summary, event_type, tags, relations.
-  - memory_type*: "working" | "episodic" | "semantic"
-  - content*: full text to store
-  - importance: 0.0~1.0 (default 0.5). 0.8+ for key findings, 0.5 normal, 0.3- trivial
-  - summary: short summary for embedding generation (default=content)
-  - event_type: "observation" | "thought" | "action" | "result" (episodic only)
-  - tags: comma-separated tags (semantic only, e.g. "Go,error_handling,concurrency")
-  - relations: JSON array for semantic graph edges or episodic event chains (optional)
+Skipping add = forgetting permanently. Skipping search = ignoring existing knowledge.
 
-[search] — Semantic vector search. params: query*, memory_types, limit, min_score, min_importance, session_id, tags.
-  - query*: search text, translates to embedding for vector similarity
-  - memory_types: []string, default=[episodic,semantic]. Searches both for broad recall
-  - limit: max results (default 10)
-  - min_score: composite score threshold to filter low-quality hits (score range [0,1.2], recommend 0.3)
-  - min_importance: importance floor, only matches with importance >= N
-  - session_id: restrict to a specific conversation session (episodic only)
-  - tags: filter by tag (semantic only, match any tag in the comma-separated list)
-
-[retrieve] — Structured field-based query, no vector search. params: memory_type*, query, limit, session_id, event_type, min_importance, tags.
-  - memory_type*: "episodic" | "semantic"
-  - query: keyword filter on content field (no embedding needed)
-  - limit: max results (default 10)
-  - session_id: session filter (episodic)
-  - event_type: "observation" | "thought" | "action" | "result" (episodic)
-  - min_importance: importance floor (episodic & semantic)
-  - tags: filter by Neo4j node label (semantic only)
-  - NOTE: For content-based search, prefer [search] over [retrieve]. Use [retrieve] for exact field filters.
-
-[forget] — Apply forget strategy to remove low-value memories. params: memory_type*, strategy*, threshold, max_age_days.
-  - memory_type*: "episodic" | "semantic"
-  - strategy*: "importance_based" (memories with importance < threshold) | "time_based" (older than max_age_days, episodic only)
-  - threshold: 0.0~1.0 for importance_based, or capacity for time_based
-  - max_age_days: days for time_based strategy
-
-[delete] — Delete a specific memory by ID. params: memory_type*, id*.
-
-[status] — Get statistics (count, time range). params: memory_type*.
-
-* = required parameter
-
-== Guidelines ==
-
-Memory type selection:
-  - episodic: conversations, observations, tool calls, actions, results — events tied to a point in time, memory decays with age
-  - semantic: reusable knowledge, rules, patterns, technical facts — no time dimension, supports graph relationships via tags
-  - working: short-term context for the current session, both writable and searchable
-
-Session ID: System auto-sets SessionId to current conversation. Omit session_id to search across all sessions; include it to scope to current session only.
-
-Importance grading: 0.8+ critical (root cause, key decision), 0.5 normal (observation), 0.3- trivial (intermediate step). Items < 0.3 are candidates for future forget.
-
-Search before answer: Always call [search] with a descriptive query before reasoning about a problem. Include both episodic and semantic for maximum recall. Use min_importance=0.3 to filter noise.
-
-Rich summaries: When adding to semantic memory, provide a clear summary parameter for better vector embedding quality. Keep content complete; make summary concise and search-friendly.
-
-Composite score range: [0, 1.2], combining vector similarity + time recency (episodic) or graph similarity (semantic) x importance boost. Higher score = more relevant.
-
-MANDATORY save: Every task MUST end with [add]. You are the agent — you must persist your own analysis results.
-  Golden flow: [search] for context → reason → [add] your conclusion → final answer.
-  Save BOTH: (a) what the user told you AND (b) what you discovered through reasoning/tools.
-  If you skip [add], the knowledge from this turn is lost forever.
-
-== Few-Shot (pay attention to the mandatory save after analysis) ==
-- User says "my name is Smith" → add(working, content="User name is Smith", importance=0.9)
-- You search memory, analyze logs, find root cause → add(episodic, content="Root cause: nil pointer at handler.go L42. Fix: add nil guard before dereference", event_type="result", importance=0.9)
-- You discover a reusable pattern through debugging → add(semantic, content="Go HTTP handler must validate req.Body != nil before json.Decode", tags="Go,HTTP,error", importance=0.8, summary="Go HTTP body nil check pattern")
-- Start any task → search(query="relevant past context keywords", memory_types=["episodic","semantic"], limit=5, min_importance=0.3)
-- You finished answering user's question → add(episodic, content="Answered question about X. Key finding: Y", event_type="result", importance=0.7)
-- Cleanup after task → forget(memory_type="episodic", strategy="importance_based", threshold=0.2)
-`
+Actions:
+- add: content* (what to remember), importance (0.0~1.0, default 0.5, 0.8+ for critical facts)
+- search: query* (search text), limit (max results, default 10)`
 
 type MemoryTool struct {
-	SessionId   string
-	Types       []types.MemoryType
-	Manager     *memory.Manager
-	description string
-}
+	types            []types.MemoryType
+	description      string
+	vectorStore      store.VectorStore
+	structuredStore  store.StructuredStore
+	embeddingService store.EmbeddingService
+	graphStore       store.GraphStore
+	config           core.AppConfig
 
-func NewMemoryTool(
-	sessionId string,
-	config core.MemoryConfig,
-	memoryTypes []types.MemoryType,
-	vectorStore store.VectorStore,
-	structuredStore store.StructuredStore,
-	embeddingService store.EmbeddingService,
-	graphStore store.GraphStore,
-) (tools.Tool, error) {
-	mt := &MemoryTool{
-		SessionId: sessionId,
-		Types:     memoryTypes,
-	}
-	if sessionId == "" {
-		mt.SessionId = strconv.Itoa(int(time.Now().UnixNano()))
-	}
-	if len(memoryTypes) == 0 {
-		mt.Types = []types.MemoryType{types.Working, types.Episodic, types.Semantic, types.Perceptual}
-	}
-	mt.description = memoryToolDescription + `Currently available memory types include: ` + fmt.Sprintf(" %v ", memoryTypes)
-	manager, err := memory.NewManager(
-		config,
-		mt.SessionId,
-		slices.Contains(mt.Types, types.Working),
-		slices.Contains(mt.Types, types.Episodic),
-		slices.Contains(mt.Types, types.Semantic),
-		slices.Contains(mt.Types, types.Perceptual),
-		vectorStore,
-		structuredStore,
-		embeddingService,
-		graphStore,
-	)
-	if err != nil {
-		return nil, err
-	}
-	mt.Manager = manager
-	return mt, nil
+	managers       map[string]*memory.Manager
+	currentManager *memory.Manager
+	llm            core.LLMInterface
 }
 
 func (m *MemoryTool) Name() string {
-	return "Memory"
+	return "memory"
 }
 
 func (m *MemoryTool) Description() string {
@@ -145,260 +49,251 @@ func (m *MemoryTool) Description() string {
 
 func (m *MemoryTool) Parameters() []tools.ToolParameter {
 	return []tools.ToolParameter{
-		{Name: "action", Type: tools.ParamString, Description: "Action to perform: add, search, retrieve, forget, delete, status", Required: true},
-		{Name: "memory_type", Type: tools.ParamString, Description: "Target memory type: working, episodic, semantic. System has dynamically informed you which types are currently available.", Required: false},
-		{Name: "content", Type: tools.ParamString, Description: "Content to store (for add)", Required: false},
-		{Name: "importance", Type: tools.ParamNumber, Description: "Importance 0..1, default 0.5 (for add/search)", Required: false},
-		{Name: "summary", Type: tools.ParamString, Description: "Summary for embedding (for add), defaults to content", Required: false},
-		{Name: "event_type", Type: tools.ParamString, Description: "Event type: observation, thought, action, result (for episodic add)", Required: false},
-		{Name: "tags", Type: tools.ParamString, Description: "Comma-separated tags (for semantic add/retrieve/search) MUST be one of: Concept, Rule, Tool", Required: false},
-		{Name: "query", Type: tools.ParamString, Description: "Search or retrieve query text", Required: false},
-		{Name: "memory_types", Type: tools.ParamArray, Description: "Memory types to search across (for search)", Required: false, ItemsType: tools.ParamString},
-		{Name: "limit", Type: tools.ParamInteger, Description: "Max results, default 10", Required: false},
-		{Name: "min_score", Type: tools.ParamNumber, Description: "Minimum composite score threshold (for search)", Required: false},
-		{Name: "min_importance", Type: tools.ParamNumber, Description: "Minimum importance filter (for search/retrieve)", Required: false},
-		{Name: "session_id", Type: tools.ParamString, Description: "Filter by session ID (for search/retrieve)", Required: false},
-		{Name: "strategy", Type: tools.ParamString, Description: "Forget strategy: importance_based, time_based", Required: false},
-		{Name: "threshold", Type: tools.ParamNumber, Description: "Forget threshold (for importance_based: 0..1, for time_based: capacity)", Required: false},
-		{Name: "max_age_days", Type: tools.ParamInteger, Description: "Max age in days for time_based forget", Required: false},
-		{Name: "id", Type: tools.ParamString, Description: "Memory item ID (for delete)", Required: false},
-		{Name: "relations", Type: tools.ParamString, Description: "JSON array (for add). episodic relation_type MUST be one of: before, after, caused_by, related_to. semantic: any string. Example episodic: [{\"target_id\":\"<id>\",\"relation_type\":\"caused_by\"}]", Required: false},
+		{Name: "action", Type: tools.ParamString, Required: true,
+			Description: "One of: add (save a memory), search (recall past memories)"},
+		{Name: "content", Type: tools.ParamString, Required: false,
+			Description: "[add] What to remember"},
+		{Name: "importance", Type: tools.ParamNumber, Required: false, Default: 0.5,
+			Description: "[add] Importance 0.0~1.0. 0.8+ = critical, 0.5 = normal, 0.3 = trivial"},
+		{Name: "query", Type: tools.ParamString, Required: false,
+			Description: "[search] Natural language search text"},
+		{Name: "limit", Type: tools.ParamInteger, Required: false, Default: 10,
+			Description: "[search] Max results"},
 	}
 }
 
 func (m *MemoryTool) Run(parameters map[string]interface{}) (string, error) {
-	action, ok := parameters["action"].(string)
-	if !ok {
-		return "", fmt.Errorf("action is required")
+	if m.currentManager == nil {
+		return "", fmt.Errorf("no active session")
 	}
-
-	slog.Debug("memory action", "action", action)
-	slog.Debug("memory params", "params", parameters)
-
+	action, _ := parameters["action"].(string)
 	switch action {
 	case "add":
 		return m.runAdd(parameters)
 	case "search":
 		return m.runSearch(parameters)
-	case "retrieve":
-		return m.runRetrieve(parameters)
-	case "forget":
-		return m.runForget(parameters)
-	case "delete":
-		return m.runDelete(parameters)
-	case "status":
-		return m.runStatus(parameters)
 	default:
 		return "", fmt.Errorf("unknown action: %s", action)
 	}
 }
 
 func (m *MemoryTool) runAdd(p map[string]interface{}) (string, error) {
-	mt, err := parseMemoryType(p, "memory_type")
-	if err != nil {
-		return "", err
-	}
-	content, ok := p["content"].(string)
-	if !ok || content == "" {
+	content, _ := p["content"].(string)
+	if content == "" {
 		return "", fmt.Errorf("content is required for add")
 	}
-
 	item := types.MemoryItem{
 		Content:    content,
-		Importance: parseFloat(p, "importance", 0.5),
-		SessionID:  m.SessionId,
-		Metadata:   make(map[string]string),
+		Importance: toFloat64(p["importance"]),
 	}
-
-	if v, ok := p["summary"].(string); ok && v != "" {
-		item.Metadata["summary"] = v
-	}
-	if v, ok := p["event_type"].(string); ok && v != "" {
-		item.Metadata["event_type"] = v
-	}
-	if v, ok := p["tags"].(string); ok && v != "" {
-		item.Metadata["tags"] = v
-	}
-	if v, ok := p["relations"].(string); ok && v != "" {
-		item.Metadata["relations"] = v
-	}
-
-	id, err := m.Manager.Add(mt, item)
+	id, err := m.currentManager.Add(item)
 	if err != nil {
 		return "", err
 	}
-	return m.jsonResult("added", map[string]interface{}{"id": id, "memory_type": string(mt)})
+	return jsonResult("added", map[string]interface{}{
+		"id": id,
+	})
 }
 
 func (m *MemoryTool) runSearch(p map[string]interface{}) (string, error) {
-	memoryTypes := parseMemoryTypes(p, "memory_types")
-	if len(memoryTypes) == 0 {
-		memoryTypes = m.Types
-	}
-
 	query, _ := p["query"].(string)
+	if query == "" {
+		return "", fmt.Errorf("query is required for search")
+	}
+	limit := toInt64(p["limit"])
 
 	opts := types.SearchOptions{
-		Limit:         parseInt(p, "limit", 10),
-		MinScore:      parseFloat(p, "min_score", 0),
-		MinImportance: parseFloat(p, "min_importance", 0),
-		Filter:        parseFilter(p),
+		Limit:         limit * 2,
+		MinScore:      0.1,
+		MinImportance: 0.1,
+		Filter:        make(map[string]string),
 	}
 
-	items, err := m.Manager.Search(query, memoryTypes, opts)
+	all, err := m.currentManager.Search(query, m.types, opts)
 	if err != nil {
 		return "", err
 	}
-	return m.jsonResult("searched", map[string]interface{}{
-		"count":   len(items),
-		"results": items,
+
+	sort.Slice(all, func(i, j int) bool {
+		return all[i].Importance > all[j].Importance
+	})
+	if int64(len(all)) > limit {
+		all = all[:limit]
+	}
+
+	return jsonResult("searched", map[string]interface{}{
+		"count":   len(all),
+		"results": all,
 	})
 }
 
-func (m *MemoryTool) runRetrieve(p map[string]interface{}) (string, error) {
-	mt, err := parseMemoryType(p, "memory_type")
-	if err != nil {
-		return "", err
+func (m *MemoryTool) AddSession(sessionID string) error {
+	if sessionID == "" {
+		return fmt.Errorf("session ID cannot be empty")
 	}
-	query, _ := p["query"].(string)
-	limit := parseInt(p, "limit", 10)
-
-	metadata := parseFilter(p)
-	items, err := m.Manager.Retrieve(mt, query, limit, metadata)
-	if err != nil {
-		return "", err
+	if _, ok := m.managers[sessionID]; ok {
+		return fmt.Errorf("session ID %q already exists", sessionID)
 	}
-	return m.jsonResult("retrieved", map[string]interface{}{
-		"count":   len(items),
-		"results": items,
-	})
+	mm, err := memory.NewManager(m.config,
+		sessionID,
+		slices.Contains(m.types, types.Working),
+		slices.Contains(m.types, types.Episodic),
+		slices.Contains(m.types, types.Semantic),
+		slices.Contains(m.types, types.Perceptual),
+		m.vectorStore,
+		m.structuredStore,
+		m.embeddingService,
+		m.graphStore,
+		m.llm)
+	if err != nil {
+		return err
+	}
+	m.managers[sessionID] = mm
+	m.currentManager = mm
+	return nil
 }
 
-func (m *MemoryTool) runForget(p map[string]interface{}) (string, error) {
-	mt, err := parseMemoryType(p, "memory_type")
-	if err != nil {
-		return "", err
-	}
-	strategyStr, _ := p["strategy"].(string)
-	strategy := types.ForgotStrategy(strategyStr)
-	threshold := parseFloat(p, "threshold", 0.5)
-	maxAgeDays := parseInt(p, "max_age_days", 30)
-
-	count, err := m.Manager.Forget(mt, strategy, threshold, int64(maxAgeDays))
-	if err != nil {
-		return "", err
-	}
-	return m.jsonResult("forgotten", map[string]interface{}{"count": count, "memory_type": string(mt)})
-}
-
-func (m *MemoryTool) runDelete(p map[string]interface{}) (string, error) {
-	mt, err := parseMemoryType(p, "memory_type")
-	if err != nil {
-		return "", err
-	}
-	id, ok := p["id"].(string)
-	if !ok || id == "" {
-		return "", fmt.Errorf("id is required for delete")
-	}
-	if err := m.Manager.Delete(mt, id); err != nil {
-		return "", err
-	}
-	return m.jsonResult("deleted", map[string]interface{}{"id": id, "memory_type": string(mt)})
-}
-
-func (m *MemoryTool) runStatus(p map[string]interface{}) (string, error) {
-	mt, err := parseMemoryType(p, "memory_type")
-	if err != nil {
-		return "", err
-	}
-	status, err := m.Manager.Status(mt)
-	if err != nil {
-		return "", err
-	}
-	return m.jsonResult("status", map[string]interface{}{
-		"memory_type": string(mt),
-		"count":       status.Count,
-		"oldest_item": status.OldestItem,
-		"newest_item": status.NewestItem,
-	})
-}
-
-func parseMemoryType(p map[string]interface{}, key string) (types.MemoryType, error) {
-	v, ok := p[key].(string)
-	if !ok || v == "" {
-		return "", fmt.Errorf("%s is required", key)
-	}
-	return types.MemoryType(v), nil
-}
-
-func parseMemoryTypes(p map[string]interface{}, key string) []types.MemoryType {
-	arr, ok := p[key].([]interface{})
+func (m *MemoryTool) RemoveSession(sessionID string) error {
+	_, ok := m.managers[sessionID]
 	if !ok {
-		return nil
+		return fmt.Errorf("session ID %q not found", sessionID)
 	}
-	result := make([]types.MemoryType, 0, len(arr))
-	for _, v := range arr {
-		if s, ok := v.(string); ok && s != "" {
-			result = append(result, types.MemoryType(s))
-		}
+	delete(m.managers, sessionID)
+	if m.currentManager != nil && m.currentManager.SessionId == sessionID {
+		m.currentManager = nil
 	}
-	return result
+	return nil
 }
 
-func parseFloat(p map[string]interface{}, key string, defaultVal float64) float64 {
-	if v, ok := p[key]; ok {
-		switch n := v.(type) {
-		case float64:
-			return n
-		case int:
-			return float64(n)
-		case string:
-			if f, err := strconv.ParseFloat(n, 64); err == nil {
-				return f
-			}
-		}
+func (m *MemoryTool) UseSession(sessionID string) error {
+	mm, ok := m.managers[sessionID]
+	if !ok {
+		return fmt.Errorf("session ID %q not found", sessionID)
 	}
-	return defaultVal
+	m.currentManager = mm
+	return nil
 }
 
-func parseInt(p map[string]interface{}, key string, defaultVal int) int64 {
-	if v, ok := p[key]; ok {
-		switch n := v.(type) {
-		case float64:
-			return int64(n)
-		case int:
-			return int64(n)
-		case string:
-			if i, err := strconv.ParseInt(n, 10, 64); err == nil {
-				return i
-			}
-		}
+func NewMemoryTool(
+	config core.AppConfig,
+	memoryTypes []types.MemoryType,
+	vectorStore store.VectorStore,
+	structuredStore store.StructuredStore,
+	embeddingService store.EmbeddingService,
+	graphStore store.GraphStore,
+) (tools.Tool, error) {
+	mt := &MemoryTool{
+		types:            memoryTypes,
+		config:           config,
+		vectorStore:      vectorStore,
+		structuredStore:  structuredStore,
+		embeddingService: embeddingService,
+		graphStore:       graphStore,
+
+		managers: make(map[string]*memory.Manager),
 	}
-	return int64(defaultVal)
+
+	if len(memoryTypes) == 0 {
+		mt.types = []types.MemoryType{types.Working, types.Episodic, types.Semantic}
+	}
+	mt.description = memoryToolDescription
+
+	if err := mt.initDefaults(); err != nil {
+		return nil, err
+	}
+
+	if slices.Contains(mt.types, types.Working) && slices.Contains(mt.types, types.Episodic) {
+		llm, err := core.NewAwesomeLLM(mt.config.LLMConfig, core.AgentConfig{
+			Temperature:     0.3,
+			MaxTokens:       1024,
+			TopP:            0.7,
+			OpenAIExtraInfo: make(map[string]string),
+		})
+		if err != nil {
+			return nil, err
+		}
+		mt.llm = llm
+	}
+
+	return mt, nil
 }
 
-func parseFilter(p map[string]interface{}) map[string]string {
-	filter := make(map[string]string)
-	for _, k := range []string{"session_id", "event_type", "tags", "min_importance"} {
-		if v, ok := p[k]; ok {
-			if s, ok := v.(string); ok && s != "" {
-				filter[k] = s
-			}
+func (m *MemoryTool) initDefaults() error {
+	cfg := m.config.Memory
+
+	if m.structuredStore == nil && slices.Contains(m.types, types.Episodic) {
+		opts := cfg.Structured.Options
+		switch cfg.Structured.Driver {
+		case "sqlite":
+			m.structuredStore = impl.NewSQLiteStore(opts)
+		default:
+			return fmt.Errorf("unsupported structure driver: %s", cfg.Structured.Driver)
+		}
+		if err := m.structuredStore.Init(context.Background()); err != nil {
+			return err
 		}
 	}
-	return filter
+
+	if m.embeddingService == nil && (slices.Contains(m.types, types.Episodic) || slices.Contains(m.types, types.Semantic)) {
+		opts := cfg.Embedding.Options
+		switch cfg.Embedding.Driver {
+		case "openai":
+			m.embeddingService = impl.NewOpenAIEmbedding(opts)
+		default:
+			return fmt.Errorf("unsupported embedding driver: %s", cfg.Embedding.Driver)
+		}
+	}
+
+	if m.vectorStore == nil && (slices.Contains(m.types, types.Episodic) || slices.Contains(m.types, types.Semantic)) {
+		opts := cfg.VectorStore.Options
+		switch cfg.VectorStore.Driver {
+		case "qdrant":
+			m.vectorStore = impl.NewQdrantStore(opts)
+		default:
+			return fmt.Errorf("unsupported vector_store driver: %s", cfg.VectorStore.Driver)
+		}
+		if err := m.vectorStore.Init(context.Background(), "episodes", m.embeddingService.Dimension()); err != nil {
+			return fmt.Errorf("init vector_store episodic: %w", err)
+		}
+		if err := m.vectorStore.Init(context.Background(), "semantic", m.embeddingService.Dimension()); err != nil {
+			return fmt.Errorf("init vector_store semantic: %w", err)
+		}
+	}
+
+	if m.graphStore == nil && slices.Contains(m.types, types.Semantic) {
+		opts := cfg.Graph.Options
+		switch cfg.Graph.Driver {
+		case "neo4j":
+			m.graphStore = impl.NewNeo4jStore(opts)
+		default:
+			return fmt.Errorf("unsupported graph driver: %s", cfg.Graph.Driver)
+		}
+		if err := m.graphStore.Init(context.Background()); err != nil {
+			return fmt.Errorf("init graph store neo4j: %w", err)
+		}
+	}
+
+	return nil
 }
 
-func (m *MemoryTool) jsonResult(action string, data map[string]interface{}) (string, error) {
-	result := map[string]interface{}{
-		"action": action,
+func toFloat64(v interface{}) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case int:
+		return float64(n)
+	default:
+		return 0
 	}
-	for k, v := range data {
-		result[k] = v
+}
+
+func toInt64(v interface{}) int64 {
+	switch n := v.(type) {
+	case float64:
+		return int64(n)
+	case int:
+		return int64(n)
+	default:
+		return 0
 	}
-	bytes, err := json.Marshal(result)
-	if err != nil {
-		return "", err
-	}
-	return string(bytes), nil
 }
