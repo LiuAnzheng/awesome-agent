@@ -3,7 +3,6 @@ package main
 import (
 	"awesome-agent/agents"
 	"awesome-agent/core"
-	"awesome-agent/memory/types"
 	"awesome-agent/tools"
 	"awesome-agent/tools/builtins"
 	"context"
@@ -33,22 +32,22 @@ func testReact() {
 	// 创建工具注册器
 	registry := tools.NewToolRegistry()
 
-	// 创建memory tool
-	mt, e := builtins.NewMemoryTool(core.AppCfg, types.AvailableMemoryTypes,
-		nil, nil, nil, nil)
+	// 创建 rag tool
+	rt, e := builtins.NewRAGTool(nil, nil, nil,
+		core.AppCfg, true, true)
 	if e != nil {
 		panic(e)
 	}
 
-	// 开启会话
-	memoryTool := mt.(*builtins.MemoryTool)
-	e = memoryTool.AddSession("1b4db7eb-4057-5ddf-91e0-36dec72071f5")
+	// 摄入文档
+	ragTool := rt.(*builtins.RAGTool)
+	e = ragTool.Ingest(context.Background(), "./knowledge_base/demo_OpenAIAPI规范.md", "openai.md")
 	if e != nil {
 		panic(e)
 	}
 
 	// 注册工具
-	registry.Register(mt)
+	registry.Register(rt)
 
 	// 创建ReAct智能体
 	agent := agents.NewReActAgent("react-agent", llm, core.AppCfg.AgentConfig, registry, 1024, "")
@@ -56,7 +55,7 @@ func testReact() {
 	ctx := context.Background()
 
 	// 运行
-	_, err = agent.Run(ctx, "你好，我叫什么名字？")
+	_, err = agent.Run(ctx, "openai api的鉴权规范应该是怎样的？")
 	if err != nil {
 		panic(err)
 	}

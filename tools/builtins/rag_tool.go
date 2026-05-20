@@ -1,6 +1,7 @@
 package builtins
 
 import (
+	"awesome-agent/memory/rag/advanced_features"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -77,6 +78,10 @@ User: "Delete the outdated PRD"
 type RAGTool struct {
 	pipeline *ingestion.Pipeline
 	config   core.AppConfig
+
+	llm        core.LLMInterface
+	enableMQE  bool
+	enableHyDE bool
 }
 
 func NewRAGTool(
@@ -84,15 +89,34 @@ func NewRAGTool(
 	vectorStore store.VectorStore,
 	docStore store.StructuredStore,
 	config core.AppConfig,
+	enableMQE bool,
+	enableHyDE bool,
 ) (tools.Tool, error) {
 	rt := &RAGTool{
-		config: config,
+		config:     config,
+		enableMQE:  enableMQE,
+		enableHyDE: enableHyDE,
 	}
 	pipeline, err := ingestion.NewPipeline(config, nil, nil, embedSvc, vectorStore, docStore)
 	if err != nil {
 		return nil, err
 	}
 	rt.pipeline = pipeline
+
+	// 如果开启高级特性
+	if enableMQE || enableHyDE {
+		llm, err := core.NewAwesomeLLM(config.LLMConfig, core.AgentConfig{
+			Temperature:     0.5,
+			MaxTokens:       1024,
+			TopP:            1.0,
+			OpenAIExtraInfo: make(map[string]string),
+		})
+		if err != nil {
+			return nil, err
+		}
+		rt.llm = llm
+	}
+
 	return rt, nil
 }
 
@@ -131,10 +155,10 @@ func (r *RAGTool) Run(params map[string]interface{}) (string, error) {
 }
 
 // Ingest 开发者API
-func (r *RAGTool) Ingest(ctx context.Context, source, name string) (*ingestion.IngestResult, error) {
+func (r *RAGTool) Ingest(ctx context.Context, source, name string) error {
 	reader, filename, closeFn, err := openSource(source)
 	if err != nil {
-		return nil, fmt.Errorf("open source: %w", err)
+		return fmt.Errorf("open source: %w", err)
 	}
 	if closeFn != nil {
 		defer func(fn func() error) {
@@ -147,7 +171,17 @@ func (r *RAGTool) Ingest(ctx context.Context, source, name string) (*ingestion.I
 	if name != "" {
 		filename = name
 	}
-	return r.pipeline.Ingest(ctx, reader, filename, ingestion.IngestOptions{})
+
+	result, err := r.pipeline.Ingest(ctx, reader, filename, ingestion.IngestOptions{})
+
+	if err != nil {
+		return fmt.Errorf("ingest error: %w", err)
+	}
+	slog.Debug("Ingest result", "result", result)
+	if result.Duplicate {
+		slog.Warn("Duplicate document", "source", source, "filename", filename)
+	}
+	return nil
 }
 
 func openSource(source string) (io.Reader, string, func() error, error) {
@@ -169,19 +203,9 @@ func (r *RAGTool) runSearch(params map[string]interface{}) (string, error) {
 	}
 	topK := getInt(params, "top_k", 5)
 
-	ctx := context.Background()
-	vec, err := r.pipeline.EmbedSvc.Embed(ctx, query)
-	if err != nil {
-		return "", fmt.Errorf("embed: %w", err)
-	}
-
-	collection := r.collection()
-	results, err := r.pipeline.VectorStore.Search(ctx, store.VectorSearch{
-		Collection: collection,
-		Vector:     vec,
-		Limit:      int64(topK * 2),
-		MinScore:   0.3,
-	})
+	collectionName := r.collection()
+	results, err := advanced_features.Recall(context.Background(), r.llm, query, topK, collectionName,
+		r.pipeline.EmbedSvc, r.pipeline.VectorStore, r.enableMQE, r.enableHyDE)
 	if err != nil {
 		return "", fmt.Errorf("vector search: %w", err)
 	}
@@ -197,7 +221,7 @@ func (r *RAGTool) runSearch(params map[string]interface{}) (string, error) {
 		ids[i] = r.ID
 	}
 
-	chunks, err := r.fetchChunks(ctx, ids)
+	chunks, err := r.fetchChunks(context.Background(), ids)
 	if err != nil {
 		return "", fmt.Errorf("fetch chunks: %w", err)
 	}
