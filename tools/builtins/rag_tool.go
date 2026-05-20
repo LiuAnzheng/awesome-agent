@@ -172,7 +172,10 @@ func (r *RAGTool) Ingest(ctx context.Context, source, name string) error {
 		filename = name
 	}
 
-	result, err := r.pipeline.Ingest(ctx, reader, filename, ingestion.IngestOptions{})
+	result, err := r.pipeline.Ingest(ctx, reader, filename, ingestion.IngestOptions{
+		ChunkSize:    512,
+		ChunkOverlap: 50,
+	})
 
 	if err != nil {
 		return fmt.Errorf("ingest error: %w", err)

@@ -373,6 +373,7 @@ func applyOverlap(chunks []Chunk, overlapSize int) {
 		currPath := extractPath(chunks[i].Content)
 		chunks[i].Content = currPath + overlapText + " " + currBody
 		chunks[i].TokenEst = estimateTokens(chunks[i].Content)
+		chunks[i].StartPos = chunks[i-1].EndPos - len([]rune(overlapText))
 	}
 }
 
