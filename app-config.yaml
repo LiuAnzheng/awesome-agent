@@ -1,7 +1,7 @@
 awesome-agent:
   llm:
-    model_id: "deepseek-v4-pro"
-    provider: "deepseek"
+    model_id: "qwen3.5-omni-plus-2026-03-15"
+    provider: "dashscope"
     api_key: ${LLM_API_KEY}
     base_url: ${LLM_BASE_URL}
   rag:
@@ -15,7 +15,7 @@ awesome-agent:
     embedding:
       driver: "openai"
       options:
-        model_id: "text-embedding-v4"
+        model_id: "qwen3-vl-embedding"
         api_key: ${EMBEDDING_API_KEY}
         base_url: ${EMBEDDING_BASE_URL}
         dimension: 1024
