@@ -4,6 +4,7 @@ import (
 	"awesome-agent/core"
 	"awesome-agent/tools"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -14,6 +15,7 @@ type ReActAgent struct {
 	ToolRegistry *tools.ToolRegistry
 	Executor     *tools.ToolExecutor
 	MaxSteps     int64
+	SessionID    string
 }
 
 const DefaultReActSystemPrompt = `
@@ -64,6 +66,7 @@ func (ra *ReActAgent) Run(ctx context.Context, inputText string) (string, error)
 		if finishReason == core.ToolCalls && len(resp.ToolCalls) > 0 {
 			slog.Debug("agent step", "step", step, "content", resp.Content,
 				"calling", toolCallNames(resp.ToolCalls))
+			ra.injectSessionID(resp.ToolCalls)
 			messages = append(messages, resp)
 			toolResults, err := ra.Executor.Execute(resp.ToolCalls)
 			if err != nil {
@@ -114,6 +117,24 @@ func toolCallNames(calls []core.ToolCall) []string {
 		names[i] = c.Function.Name
 	}
 	return names
+}
+
+func (ra *ReActAgent) injectSessionID(toolCalls []core.ToolCall) {
+	if ra.SessionID == "" {
+		return
+	}
+	for i := range toolCalls {
+		var args map[string]interface{}
+		if toolCalls[i].Function.Arguments != "" {
+			json.Unmarshal([]byte(toolCalls[i].Function.Arguments), &args)
+		}
+		if args == nil {
+			args = make(map[string]interface{})
+		}
+		args["_session_id"] = ra.SessionID
+		b, _ := json.Marshal(args)
+		toolCalls[i].Function.Arguments = string(b)
+	}
 }
 
 func NewReActAgent(name string,

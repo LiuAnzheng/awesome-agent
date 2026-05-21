@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"strings"
 )
 
 type ToolExecutor struct {
@@ -104,9 +105,9 @@ func validateParams(tool Tool, params map[string]interface{}) (map[string]interf
 		}
 	}
 
-	// 警告多余参数
+	// 移除非系统参数（_ 前缀保留给框架注入）
 	for name := range params {
-		if _, ok := specs[name]; !ok {
+		if _, ok := specs[name]; !ok && !strings.HasPrefix(name, "_") {
 			delete(params, name)
 		}
 	}

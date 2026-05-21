@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"sync"
 )
 
 var memoryToolDescription = `CRITICAL: You have NO persistent memory. Every turn starts from zero. Without this tool, all past context is LOST.
@@ -34,9 +35,10 @@ type MemoryTool struct {
 	graphStore       store.GraphStore
 	config           core.AppConfig
 
-	managers       map[string]*memory.Manager
-	currentManager *memory.Manager
-	llm            core.LLMInterface
+	managers         map[string]*memory.Manager
+	mu               sync.RWMutex
+	defaultSessionID string
+	llm              core.LLMInterface
 }
 
 func (m *MemoryTool) Name() string {
@@ -63,21 +65,46 @@ func (m *MemoryTool) Parameters() []tools.ToolParameter {
 }
 
 func (m *MemoryTool) Run(parameters map[string]interface{}) (string, error) {
-	if m.currentManager == nil {
-		return "", fmt.Errorf("no active session")
+	mgr, err := m.resolveManager(parameters)
+	if err != nil {
+		return "", err
 	}
 	action, _ := parameters["action"].(string)
 	switch action {
 	case "add":
-		return m.runAdd(parameters)
+		return m.runAdd(mgr, parameters)
 	case "search":
-		return m.runSearch(parameters)
+		return m.runSearch(mgr, parameters)
 	default:
 		return "", fmt.Errorf("unknown action: %s", action)
 	}
 }
 
-func (m *MemoryTool) runAdd(p map[string]interface{}) (string, error) {
+// resolveManager 从 _session_id 解析 Manager；未注入时回退到 defaultSessionID。
+func (m *MemoryTool) resolveManager(params map[string]interface{}) (*memory.Manager, error) {
+	sessionID, _ := params["_session_id"].(string)
+	if sessionID == "" {
+		sessionID = m.getDefaultSessionID()
+	}
+	if sessionID == "" {
+		return nil, fmt.Errorf("no session: _session_id not injected and no default session set")
+	}
+	m.mu.RLock()
+	mgr, ok := m.managers[sessionID]
+	m.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("session %q not found", sessionID)
+	}
+	return mgr, nil
+}
+
+func (m *MemoryTool) getDefaultSessionID() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.defaultSessionID
+}
+
+func (m *MemoryTool) runAdd(mgr *memory.Manager, p map[string]interface{}) (string, error) {
 	content, _ := p["content"].(string)
 	if content == "" {
 		return "", fmt.Errorf("content is required for add")
@@ -86,7 +113,7 @@ func (m *MemoryTool) runAdd(p map[string]interface{}) (string, error) {
 		Content:    content,
 		Importance: toFloat64(p["importance"]),
 	}
-	id, err := m.currentManager.Add(item)
+	id, err := mgr.Add(item)
 	if err != nil {
 		return "", err
 	}
@@ -95,7 +122,7 @@ func (m *MemoryTool) runAdd(p map[string]interface{}) (string, error) {
 	})
 }
 
-func (m *MemoryTool) runSearch(p map[string]interface{}) (string, error) {
+func (m *MemoryTool) runSearch(mgr *memory.Manager, p map[string]interface{}) (string, error) {
 	query, _ := p["query"].(string)
 	if query == "" {
 		return "", fmt.Errorf("query is required for search")
@@ -106,10 +133,12 @@ func (m *MemoryTool) runSearch(p map[string]interface{}) (string, error) {
 		Limit:         limit,
 		MinScore:      0.1,
 		MinImportance: 0.1,
-		Filter:        make(map[string]string),
+		Filter: map[string]string{
+			"session_id": mgr.SessionId,
+		},
 	}
 
-	all, err := m.currentManager.Search(query, m.types, opts)
+	all, err := mgr.Search(query, m.types, opts)
 	if err != nil {
 		return "", err
 	}
@@ -131,6 +160,10 @@ func (m *MemoryTool) AddSession(sessionID string) error {
 	if sessionID == "" {
 		return fmt.Errorf("session ID cannot be empty")
 	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if _, ok := m.managers[sessionID]; ok {
 		return fmt.Errorf("session ID %q already exists", sessionID)
 	}
@@ -149,28 +182,34 @@ func (m *MemoryTool) AddSession(sessionID string) error {
 		return err
 	}
 	m.managers[sessionID] = mm
-	m.currentManager = mm
+	if m.defaultSessionID == "" {
+		m.defaultSessionID = sessionID
+	}
 	return nil
 }
 
 func (m *MemoryTool) RemoveSession(sessionID string) error {
-	_, ok := m.managers[sessionID]
-	if !ok {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.managers[sessionID]; !ok {
 		return fmt.Errorf("session ID %q not found", sessionID)
 	}
 	delete(m.managers, sessionID)
-	if m.currentManager != nil && m.currentManager.SessionId == sessionID {
-		m.currentManager = nil
+	if m.defaultSessionID == sessionID {
+		m.defaultSessionID = ""
 	}
 	return nil
 }
 
 func (m *MemoryTool) UseSession(sessionID string) error {
-	mm, ok := m.managers[sessionID]
-	if !ok {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.managers[sessionID]; !ok {
 		return fmt.Errorf("session ID %q not found", sessionID)
 	}
-	m.currentManager = mm
+	m.defaultSessionID = sessionID
 	return nil
 }
 
