@@ -2,6 +2,7 @@ package memory
 
 import (
 	"awesome-agent/core"
+	"awesome-agent/memory/retrieval"
 	"awesome-agent/memory/store"
 	"awesome-agent/memory/types"
 	"context"
@@ -66,7 +67,7 @@ func NewManager(
 
 	m.Memories = make(map[types.MemoryType]types.Memory)
 	if enableWorking {
-		m.Memories[types.Working] = types.NewWorkingMemory(1024, 360, m.SessionId)
+		m.Memories[types.Working] = types.NewWorkingMemory(1024, 360, m.SessionId, retrieval.GetTokenizer())
 	}
 	if enableEpisodic {
 		episodic := types.NewEpisodicMemory(m.SessionId,

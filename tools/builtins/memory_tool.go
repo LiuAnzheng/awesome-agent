@@ -103,7 +103,7 @@ func (m *MemoryTool) runSearch(p map[string]interface{}) (string, error) {
 	limit := toInt64(p["limit"])
 
 	opts := types.SearchOptions{
-		Limit:         limit * 2,
+		Limit:         limit,
 		MinScore:      0.1,
 		MinImportance: 0.1,
 		Filter:        make(map[string]string),
