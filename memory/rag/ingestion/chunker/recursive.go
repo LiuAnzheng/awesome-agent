@@ -249,9 +249,6 @@ func emitParagraphChunks(chunks *[]Chunk, paras []string, startPos int, path str
 	pos := startPos
 
 	for i, para := range paras {
-		if para == "" {
-			continue
-		}
 		sep := ""
 		if buf.Len() > 0 {
 			sep = "\n\n"
