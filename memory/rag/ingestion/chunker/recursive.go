@@ -282,6 +282,9 @@ func emitLineChunks(chunks *[]Chunk, lines []string, startPos int, path string, 
 	pos := startPos
 
 	for i, line := range lines {
+		if line == "" {
+			continue
+		}
 		sep := ""
 		if buf.Len() > 0 {
 			sep = "\n"
