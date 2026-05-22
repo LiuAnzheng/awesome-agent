@@ -26,6 +26,7 @@ Thumbs.db
 # Git
 .git/
 
-# memory&rag
+# project
 data/
 knowledge_base/
+multimodal_data/
