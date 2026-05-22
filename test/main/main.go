@@ -7,12 +7,60 @@ import (
 	"awesome-agent/tools"
 	"awesome-agent/tools/builtins"
 	"context"
+	"fmt"
 	"log/slog"
+	"os"
 )
 
 func main() {
 	//testRag()
-	testMemory()
+	//testMemory()
+	testLLM()
+}
+
+func testLLM() {
+	// 日志级别
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+
+	// 加载配置文件
+	e := core.LoadConfig("app-config.yaml")
+	if e != nil {
+		panic(e)
+	}
+
+	// 创建LLM客户端
+	llm, err := core.NewAwesomeLLM(core.AppCfg.LLMConfig, core.AppCfg.AgentConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	// 读取图片
+	bytes, e := os.ReadFile("./multimodal_data/test.jpg")
+	if e != nil {
+		panic(e)
+	}
+
+	// 构建content part
+	var contentParts []core.ContentPart
+	p1 := core.NewTextContentPart("这是什么？")
+	contentParts = append(contentParts, p1)
+	p2 := core.NewImageContentPart(&core.ImageURL{
+		URL:    core.BuildBase64URL(bytes, core.JPEG),
+		Detail: "auto",
+	})
+	contentParts = append(contentParts, p2)
+
+	message, _, e := llm.ChatComplete(context.Background(), []core.Message{
+		core.Message{
+			Role:    "user",
+			Content: contentParts,
+		},
+	}, nil, nil)
+	if e != nil {
+		panic(e)
+	}
+
+	fmt.Println(message)
 }
 
 func testMemory() {
