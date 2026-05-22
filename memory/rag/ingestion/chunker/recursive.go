@@ -106,7 +106,11 @@ func scanHeadingLine(text []rune, start, end int) (level int, title string, ok b
 		return 0, "", false
 	}
 	i++ // skip space
-	title = string(text[i : end-1])
+	titleEnd := end
+	if end > 0 && text[end-1] == '\n' {
+		titleEnd = end - 1
+	}
+	title = string(text[i:titleEnd])
 	title = strings.TrimSpace(title)
 	return level, title, true
 }
