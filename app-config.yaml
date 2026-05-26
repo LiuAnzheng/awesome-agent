@@ -15,7 +15,7 @@ awesome-agent:
     embedding:
       driver: "openai"
       options:
-        model_id: "qwen3-vl-embedding"
+        model_id: "text-embedding-v4"
         api_key: ${EMBEDDING_API_KEY}
         base_url: ${EMBEDDING_BASE_URL}
         dimension: 1024

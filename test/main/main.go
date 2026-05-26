@@ -3,6 +3,7 @@ package main
 import (
 	"awesome-agent/agents"
 	"awesome-agent/core"
+	"awesome-agent/memory/rag/ingestion/chunker"
 	"awesome-agent/memory/types"
 	"awesome-agent/tools"
 	"awesome-agent/tools/builtins"
@@ -13,9 +14,9 @@ import (
 )
 
 func main() {
-	//testRag()
+	testRag()
 	//testMemory()
-	testLLM()
+	//testLLM()
 }
 
 func testLLM() {
@@ -141,14 +142,15 @@ func testRag() {
 
 	// 创建 rag tool
 	rt, e := builtins.NewRAGTool(nil, nil, nil,
-		core.AppCfg, true, true)
+		core.AppCfg, chunker.Semantic, false, false)
 	if e != nil {
 		panic(e)
 	}
 
 	// 摄入文档
 	ragTool := rt.(*builtins.RAGTool)
-	e = ragTool.Ingest(context.Background(), "./knowledge_base/demo_OpenAIAPI规范.md", "openai.md")
+	e = ragTool.Ingest(context.Background(), "knowledge_base/thoughts_on_the_altar_of_the_earth.txt",
+		"thoughts_on_the_altar_of_the_earth.txt")
 	if e != nil {
 		panic(e)
 	}
@@ -162,7 +164,8 @@ func testRag() {
 	ctx := context.Background()
 
 	// 运行
-	_, err = agent.Run(ctx, "openai api的鉴权规范应该是怎样的？")
+	question := `作者为什么说 "这园中不单是处处都有过我的车辙，有过我的车辙的地方也都有过母亲的脚印"？请结合文章内容谈谈你对这句话的理解。`
+	_, err = agent.Run(ctx, question)
 	if err != nil {
 		panic(err)
 	}

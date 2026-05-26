@@ -1,5 +1,12 @@
 package chunker
 
+type ChunkStrategy string
+
+const (
+	Title    ChunkStrategy = "title"
+	Semantic ChunkStrategy = "semantic"
+)
+
 type Chunk struct {
 	Index    int
 	Content  string

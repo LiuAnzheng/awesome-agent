@@ -70,6 +70,7 @@ func NewPipeline(
 	embedSvc store.EmbeddingService,
 	vectorStore store.VectorStore,
 	docStore store.StructuredStore,
+	chunkStrategy chunker.ChunkStrategy,
 ) (*Pipeline, error) {
 	p := &Pipeline{
 		parserReg:   parserReg,
@@ -82,11 +83,19 @@ func NewPipeline(
 	if p.parserReg == nil {
 		p.parserReg = parser.NewParserRegistry()
 	}
-	if p.chunker == nil {
-		p.chunker = chunker.NewRecursiveChunker()
-	}
 	if p.EmbedSvc == nil {
 		p.EmbedSvc = impl.NewOpenAIEmbedding(config.Memory.Embedding.Options)
+	}
+	if p.chunker == nil {
+		if chunkStrategy == chunker.Semantic {
+			semanticChunker, err := chunker.NewSemanticChunker(p.EmbedSvc, 2, 1, 50)
+			if err != nil {
+				return nil, err
+			}
+			p.chunker = semanticChunker
+		} else {
+			p.chunker = chunker.NewRecursiveChunker()
+		}
 	}
 	if p.VectorStore == nil {
 		collection := config.RAGConfig.Collection

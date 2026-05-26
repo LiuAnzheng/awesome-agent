@@ -2,6 +2,7 @@ package builtins
 
 import (
 	"awesome-agent/memory/rag/advanced_features"
+	"awesome-agent/memory/rag/ingestion/chunker"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -89,6 +90,7 @@ func NewRAGTool(
 	vectorStore store.VectorStore,
 	docStore store.StructuredStore,
 	config core.AppConfig,
+	chunkStrategy chunker.ChunkStrategy,
 	enableMQE bool,
 	enableHyDE bool,
 ) (tools.Tool, error) {
@@ -97,7 +99,7 @@ func NewRAGTool(
 		enableMQE:  enableMQE,
 		enableHyDE: enableHyDE,
 	}
-	pipeline, err := ingestion.NewPipeline(config, nil, nil, embedSvc, vectorStore, docStore)
+	pipeline, err := ingestion.NewPipeline(config, nil, nil, embedSvc, vectorStore, docStore, chunkStrategy)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +175,7 @@ func (r *RAGTool) Ingest(ctx context.Context, source, name string) error {
 	}
 
 	result, err := r.pipeline.Ingest(ctx, reader, filename, ingestion.IngestOptions{
-		ChunkSize:    512,
+		ChunkSize:    1024,
 		ChunkOverlap: 50,
 	})
 
