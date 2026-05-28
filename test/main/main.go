@@ -30,7 +30,7 @@ func testLLM() {
 	}
 
 	// 创建LLM客户端
-	llm, err := core.NewAwesomeLLM(core.AppCfg.LLMConfig, core.AppCfg.AgentConfig)
+	llm, err := core.NewAwesomeLLM(core.AppCfg.LLMConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -75,7 +75,7 @@ func testMemory() {
 	}
 
 	// 创建LLM客户端
-	llm, err := core.NewAwesomeLLM(core.AppCfg.LLMConfig, core.AppCfg.AgentConfig)
+	llm, err := core.NewAwesomeLLM(core.AppCfg.LLMConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -100,7 +100,7 @@ func testMemory() {
 	registry.Register(mt)
 
 	// 创建ReAct智能体
-	agent := agents.NewReActAgent("react-agent", llm, core.AppCfg.AgentConfig, registry, 1024, "")
+	agent := agents.NewReActAgent("react-agent", llm, core.AppCfg, registry, 1024, "")
 
 	ctx := context.Background()
 
@@ -132,7 +132,7 @@ func testRag() {
 	}
 
 	// 创建LLM客户端
-	llm, err := core.NewAwesomeLLM(core.AppCfg.LLMConfig, core.AppCfg.AgentConfig)
+	llm, err := core.NewAwesomeLLM(core.AppCfg.LLMConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -159,7 +159,7 @@ func testRag() {
 	registry.Register(rt)
 
 	// 创建ReAct智能体
-	agent := agents.NewReActAgent("react-agent", llm, core.AppCfg.AgentConfig, registry, 1024, "")
+	agent := agents.NewReActAgent("react-agent", llm, core.AppCfg, registry, 1024, "")
 
 	ctx := context.Background()
 

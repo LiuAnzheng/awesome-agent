@@ -9,15 +9,12 @@ import (
 )
 
 type LLMConfig struct {
-	ModelID  string `mapstructure:"model_id"`
-	Provider string `mapstructure:"provider"`
-	APIKey   string `mapstructure:"api_key"`
-	BaseURL  string `mapstructure:"base_url"`
-}
-
-type AgentConfig struct {
-	Temperature     float64           `mapstructure:"temperature"`
+	ModelID         string            `mapstructure:"model_id"`
+	Provider        string            `mapstructure:"provider"`
+	APIKey          string            `mapstructure:"api_key"`
+	BaseURL         string            `mapstructure:"base_url"`
 	MaxTokens       int64             `mapstructure:"max_tokens"`
+	Temperature     float64           `mapstructure:"temperature"`
 	TopP            float64           `mapstructure:"top_p"`
 	OpenAIExtraInfo map[string]string `mapstructure:"open_ai_extra_info"`
 }
@@ -40,23 +37,30 @@ type RAGConfig struct {
 	Collection string `mapstructure:"collection"`
 }
 
+type ContextConfig struct {
+	MaxTokens         int64   `mapstructure:"max_tokens"`
+	ReserveRatio      float64 `mapstructure:"reserve_ratio"`
+	MinRelevance      float64 `mapstructure:"min_relevance"`
+	EnableCompression bool    `mapstructure:"enable_compression"`
+	RecencyWeight     float64 `mapstructure:"recency_weight"`
+	RelevanceWeight   float64 `mapstructure:"relevance_weight"`
+}
+
 type AppConfig struct {
-	LLMConfig   LLMConfig    `mapstructure:"llm"`
-	AgentConfig AgentConfig  `mapstructure:"agent"`
-	Memory      MemoryConfig `mapstructure:"memory"`
-	RAGConfig   RAGConfig    `mapstructure:"rag"`
+	LLMConfig     LLMConfig     `mapstructure:"llm"`
+	Memory        MemoryConfig  `mapstructure:"memory"`
+	RAGConfig     RAGConfig     `mapstructure:"rag"`
+	ContextConfig ContextConfig `mapstructure:"context"`
 }
 
 var AppCfg = AppConfig{
 	LLMConfig: LLMConfig{
-		ModelID:  "gpt-5.4",
-		Provider: "openai",
-		APIKey:   "",
-		BaseURL:  "https://api.openai.com/",
-	},
-	AgentConfig: AgentConfig{
+		ModelID:         "gpt-5.4",
+		Provider:        "openai",
+		APIKey:          "",
+		BaseURL:         "https://api.openai.com/",
+		MaxTokens:       102400,
 		Temperature:     0.7,
-		MaxTokens:       1024,
 		TopP:            1.0,
 		OpenAIExtraInfo: make(map[string]string),
 	},
@@ -99,6 +103,14 @@ var AppCfg = AppConfig{
 		MaxDocSize: 50 * 1024 * 1024,
 		Collection: "rag",
 	},
+	ContextConfig: ContextConfig{
+		MaxTokens:         102400,
+		ReserveRatio:      0.2,
+		MinRelevance:      0.1,
+		EnableCompression: true,
+		RecencyWeight:     0.3,
+		RelevanceWeight:   0.7,
+	},
 }
 
 func LoadConfig(path string) error {
@@ -115,12 +127,10 @@ func LoadConfig(path string) error {
 	v.SetDefault("awesome-agent.llm.provider", AppCfg.LLMConfig.Provider)
 	v.SetDefault("awesome-agent.llm.api_key", AppCfg.LLMConfig.APIKey)
 	v.SetDefault("awesome-agent.llm.base_url", AppCfg.LLMConfig.BaseURL)
-
-	// Agent
-	v.SetDefault("awesome-agent.agent.temperature", AppCfg.AgentConfig.Temperature)
-	v.SetDefault("awesome-agent.agent.max_tokens", AppCfg.AgentConfig.MaxTokens)
-	v.SetDefault("awesome-agent.agent.top_p", AppCfg.AgentConfig.TopP)
-	v.SetDefault("awesome-agent.agent.open_ai_extra_info", AppCfg.AgentConfig.OpenAIExtraInfo)
+	v.SetDefault("awesome-agent.llm.max_tokens", AppCfg.LLMConfig.MaxTokens)
+	v.SetDefault("awesome-agent.llm.temperature", AppCfg.LLMConfig.Temperature)
+	v.SetDefault("awesome-agent.llm.top_p", AppCfg.LLMConfig.TopP)
+	v.SetDefault("awesome-agent.llm.open_ai_extra_info", AppCfg.LLMConfig.OpenAIExtraInfo)
 
 	// Memory
 	v.SetDefault("awesome-agent.memory.structure.driver", AppCfg.Memory.Structured.Driver)
@@ -135,8 +145,17 @@ func LoadConfig(path string) error {
 	v.SetDefault("awesome-agent.memory.graph.driver", AppCfg.Memory.Graph.Driver)
 	v.SetDefault("awesome-agent.memory.graph.options", AppCfg.Memory.Graph.Options)
 
+	// RAG
 	v.SetDefault("awesome-agent.rag.max_doc_size", AppCfg.RAGConfig.MaxDocSize)
 	v.SetDefault("awesome-agent.rag.collection", AppCfg.RAGConfig.Collection)
+
+	// Context
+	v.SetDefault("awesome-agent.context.max_tokens", AppCfg.ContextConfig.MaxTokens)
+	v.SetDefault("awesome-agent.context.reserve_ratio", AppCfg.ContextConfig.ReserveRatio)
+	v.SetDefault("awesome-agent.context.min_relevance", AppCfg.ContextConfig.MinRelevance)
+	v.SetDefault("awesome-agent.context.enable_compression", AppCfg.ContextConfig.EnableCompression)
+	v.SetDefault("awesome-agent.context.recency_weight", AppCfg.ContextConfig.RecencyWeight)
+	v.SetDefault("awesome-agent.context.relevance_weight", AppCfg.ContextConfig.RelevanceWeight)
 
 	err = v.ReadConfig(strings.NewReader(expanded))
 	if err != nil {
@@ -148,5 +167,35 @@ func LoadConfig(path string) error {
 		return fmt.Errorf("config not found in %s", path)
 	}
 
-	return sub.Unmarshal(&AppCfg)
+	if err := sub.Unmarshal(&AppCfg); err != nil {
+		return err
+	}
+	return validateContextConfig(AppCfg.ContextConfig, AppCfg.LLMConfig)
+}
+
+func validateContextConfig(c ContextConfig, l LLMConfig) error {
+	if c.MaxTokens <= 0 {
+		return fmt.Errorf("context.max_tokens must be positive, got: %v", c.MaxTokens)
+	}
+	if c.MaxTokens > l.MaxTokens {
+		return fmt.Errorf("context.max_tokens (%v) cannot exceed llm.max_tokens (%v)", c.MaxTokens, l.MaxTokens)
+	}
+	if c.ReserveRatio < 0.0 || c.ReserveRatio > 1.0 {
+		return fmt.Errorf("reserve_ratio must be in [0, 1], got: %v", c.ReserveRatio)
+	}
+	if c.MinRelevance < 0.0 || c.MinRelevance > 1.0 {
+		return fmt.Errorf("min_relevance must be in [0, 1], got: %v", c.MinRelevance)
+	}
+	if c.RecencyWeight < 0.0 || c.RecencyWeight > 1.0 {
+		return fmt.Errorf("recency_weight must be in [0, 1], got: %v", c.RecencyWeight)
+	}
+	if c.RelevanceWeight < 0.0 || c.RelevanceWeight > 1.0 {
+		return fmt.Errorf("relevance_weight must be in [0, 1], got: %v", c.RelevanceWeight)
+	}
+	sum := c.RecencyWeight + c.RelevanceWeight
+	if sum < 0.999999 || sum > 1.000001 {
+		return fmt.Errorf("recency_weight + relevance_weight must equal 1.0, got sum=%v (recency=%v, relevance=%v)",
+			sum, c.RecencyWeight, c.RelevanceWeight)
+	}
+	return nil
 }

@@ -139,7 +139,7 @@ func (ra *ReActAgent) injectSessionID(toolCalls []core.ToolCall) {
 
 func NewReActAgent(name string,
 	llm core.LLMInterface,
-	config core.AgentConfig,
+	config core.AppConfig,
 	toolRegistry *tools.ToolRegistry,
 	maxSteps int64,
 	systemPrompt string) *ReActAgent {

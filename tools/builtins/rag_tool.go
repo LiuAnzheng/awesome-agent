@@ -107,11 +107,15 @@ func NewRAGTool(
 
 	// 如果开启高级特性
 	if enableMQE || enableHyDE {
-		llm, err := core.NewAwesomeLLM(config.LLMConfig, core.AgentConfig{
-			Temperature:     0.5,
-			MaxTokens:       1024,
-			TopP:            1.0,
-			OpenAIExtraInfo: make(map[string]string),
+		llm, err := core.NewAwesomeLLM(core.LLMConfig{
+			ModelID:         config.LLMConfig.ModelID,
+			BaseURL:         config.LLMConfig.BaseURL,
+			MaxTokens:       config.LLMConfig.MaxTokens,
+			Temperature:     0.3, // 扩展查询生成用低温度
+			TopP:            config.LLMConfig.TopP,
+			OpenAIExtraInfo: config.LLMConfig.OpenAIExtraInfo,
+			Provider:        config.LLMConfig.Provider,
+			APIKey:          config.LLMConfig.APIKey,
 		})
 		if err != nil {
 			return nil, err

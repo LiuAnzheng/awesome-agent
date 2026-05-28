@@ -242,11 +242,15 @@ func NewMemoryTool(
 	}
 
 	if slices.Contains(mt.types, types.Working) && slices.Contains(mt.types, types.Episodic) {
-		llm, err := core.NewAwesomeLLM(mt.config.LLMConfig, core.AgentConfig{
-			Temperature:     0.3,
-			MaxTokens:       1024,
-			TopP:            0.7,
-			OpenAIExtraInfo: make(map[string]string),
+		llm, err := core.NewAwesomeLLM(core.LLMConfig{
+			ModelID:         config.LLMConfig.ModelID,
+			BaseURL:         config.LLMConfig.BaseURL,
+			MaxTokens:       config.LLMConfig.MaxTokens,
+			Temperature:     0.3, // 记忆整合用低温度
+			TopP:            config.LLMConfig.TopP,
+			OpenAIExtraInfo: config.LLMConfig.OpenAIExtraInfo,
+			Provider:        config.LLMConfig.Provider,
+			APIKey:          config.LLMConfig.APIKey,
 		})
 		if err != nil {
 			return nil, err

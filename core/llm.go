@@ -23,7 +23,7 @@ func newOpenAIHTTPClient(baseURL, apiKey, model string) *openAIHTTPClient {
 	return &openAIHTTPClient{baseURL: baseURL, apiKey: apiKey, model: model}
 }
 
-func (c *openAIHTTPClient) chatComplete(ctx context.Context, messages []Message, config AgentConfig, tools []map[string]interface{}, toolChoice interface{}) (Message, FinishReasonType, error) {
+func (c *openAIHTTPClient) chatComplete(ctx context.Context, messages []Message, config LLMConfig, tools []map[string]interface{}, toolChoice interface{}) (Message, FinishReasonType, error) {
 	if messages == nil || len(messages) == 0 {
 		return Message{}, "", errors.New("no messages")
 	}
@@ -91,7 +91,7 @@ func (c *openAIHTTPClient) chatComplete(ctx context.Context, messages []Message,
 	return result.Choices[0].Message, finishReason, nil
 }
 
-func (c *openAIHTTPClient) chatStream(ctx context.Context, messages []Message, config AgentConfig, tools []map[string]interface{}, toolChoice interface{}) <-chan StreamChunk {
+func (c *openAIHTTPClient) chatStream(ctx context.Context, messages []Message, config LLMConfig, tools []map[string]interface{}, toolChoice interface{}) <-chan StreamChunk {
 	ch := make(chan StreamChunk)
 	if messages == nil || len(messages) == 0 {
 		c.sendToChan(ctx, ch, StreamChunk{Err: fmt.Errorf("no messages")})
@@ -211,7 +211,7 @@ type LLMInterface interface {
 
 type AwesomeLLM struct {
 	httpClient openAIHTTPClient
-	config     AgentConfig
+	config     LLMConfig
 
 	ModelID  string
 	provider string
@@ -239,14 +239,14 @@ type StreamChunk struct {
 	Err          error
 }
 
-func NewAwesomeLLM(llmConfig LLMConfig, agentConfig AgentConfig) (LLMInterface, error) {
+func NewAwesomeLLM(llmConfig LLMConfig) (LLMInterface, error) {
 	llmClient := &AwesomeLLM{}
 
 	llmClient.provider = llmConfig.Provider
 	llmClient.ModelID = llmConfig.ModelID
 	llmClient.APIKey = llmConfig.APIKey
 	llmClient.BaseURL = llmConfig.BaseURL
-	llmClient.config = agentConfig
+	llmClient.config = llmConfig
 
 	llmClient.httpClient = *newOpenAIHTTPClient(llmClient.BaseURL, llmClient.APIKey, llmClient.ModelID)
 	return llmClient, nil
