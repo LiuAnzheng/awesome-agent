@@ -88,6 +88,7 @@ func (c *openAIHTTPClient) chatComplete(ctx context.Context, messages []Message,
 		return Message{}, "", errors.New("no choices returned")
 	}
 	finishReason := ParseFinishReason(result.Choices[0].FinishReason)
+	result.Choices[0].Message.Timestamp = Now()
 	return result.Choices[0].Message, finishReason, nil
 }
 
@@ -178,6 +179,7 @@ func (c *openAIHTTPClient) chatStream(ctx context.Context, messages []Message, c
 			if len(raw.Choices) == 0 {
 				continue
 			}
+			raw.Choices[0].Delta.Timestamp = Now()
 			if !c.sendToChan(ctx, ch, StreamChunk{
 				Delta:        raw.Choices[0].Delta,
 				FinishReason: ParseFinishReason(raw.Choices[0].FinishReason),

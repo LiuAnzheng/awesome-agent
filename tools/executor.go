@@ -38,6 +38,7 @@ func (e *ToolExecutor) executeOne(tc core.ToolCall) core.Message {
 			Role:       "tool",
 			Content:    fmt.Sprintf("tool %q not found", tc.Function.Name),
 			ToolCallID: tc.ID,
+			Timestamp:  core.Now(),
 		}
 	}
 

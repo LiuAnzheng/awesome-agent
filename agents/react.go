@@ -90,7 +90,7 @@ func (ra *ReActAgent) Run(ctx context.Context, inputText string) (string, error)
 
 func (ra *ReActAgent) buildMessages() []core.Message {
 	messages := make([]core.Message, 0, len(ra.History())+1)
-	messages = append(messages, core.Message{Role: "system", Content: ra.SystemPrompt})
+	messages = append(messages, core.Message{Role: "system", Content: ra.SystemPrompt, Timestamp: core.Now()})
 	for _, msg := range ra.History() {
 		messages = append(messages, msg)
 	}
