@@ -111,7 +111,7 @@ func (w *WorkingMemory) Search(query string, opts SearchOptions) ([]MemoryItem, 
 		if item.Metadata == nil {
 			item.Metadata = make(map[string]string)
 		}
-		item.Metadata["bm25_score"] = strconv.FormatFloat(sd.Score, 'f', 4, 64)
+		item.Metadata["score"] = strconv.FormatFloat(sd.Score, 'f', 4, 64)
 
 		res = append(res, item)
 		if opts.Limit > 0 && int64(len(res)) >= opts.Limit {

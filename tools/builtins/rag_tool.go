@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"awesome-agent/core"
 	"awesome-agent/memory/rag/ingestion"
@@ -85,6 +86,16 @@ type RAGTool struct {
 	enableHyDE bool
 }
 
+type SearchItem struct {
+	ChunkID    string     `json:"chunk_id"`
+	DocID      string     `json:"doc_id"`
+	DocName    string     `json:"doc_name"`
+	Content    string     `json:"content"`
+	Score      float64    `json:"score"`
+	ChunkIndex int        `json:"chunk_index"`
+	CreatedAt  *time.Time `json:"created_at"`
+}
+
 func NewRAGTool(
 	embedSvc store.EmbeddingService,
 	vectorStore store.VectorStore,
@@ -148,7 +159,14 @@ func (r *RAGTool) Run(params map[string]interface{}) (string, error) {
 	action, _ := params["action"].(string)
 	switch action {
 	case "search":
-		return r.runSearch(params)
+		items, err := r.RunSearch(params)
+		if err != nil {
+			return "", err
+		}
+		return jsonResult("searched", map[string]interface{}{
+			"count":   len(items),
+			"results": items,
+		})
 	case "list":
 		return r.runList(params)
 	case "delete":
@@ -205,10 +223,10 @@ func openSource(source string) (io.Reader, string, func() error, error) {
 	return strings.NewReader(source), "paste.txt", nil, nil
 }
 
-func (r *RAGTool) runSearch(params map[string]interface{}) (string, error) {
+func (r *RAGTool) RunSearch(params map[string]interface{}) ([]SearchItem, error) {
 	query, _ := params["query"].(string)
 	if query == "" {
-		return "", fmt.Errorf("query is required for search")
+		return nil, fmt.Errorf("query is required for search")
 	}
 	topK := getInt(params, "top_k", 5)
 
@@ -216,13 +234,10 @@ func (r *RAGTool) runSearch(params map[string]interface{}) (string, error) {
 	results, err := advanced_features.Recall(context.Background(), r.llm, query, topK, collectionName,
 		r.pipeline.EmbedSvc, r.pipeline.VectorStore, r.enableMQE, r.enableHyDE)
 	if err != nil {
-		return "", fmt.Errorf("vector search: %w", err)
+		return nil, fmt.Errorf("vector search: %w", err)
 	}
 	if len(results) == 0 {
-		return jsonResult("searched", map[string]interface{}{
-			"count":   0,
-			"results": []interface{}{},
-		})
+		return []SearchItem{}, nil
 	}
 
 	ids := make([]string, len(results))
@@ -232,18 +247,10 @@ func (r *RAGTool) runSearch(params map[string]interface{}) (string, error) {
 
 	chunks, err := r.fetchChunks(context.Background(), ids)
 	if err != nil {
-		return "", fmt.Errorf("fetch chunks: %w", err)
+		return nil, fmt.Errorf("fetch chunks: %w", err)
 	}
 
-	type searchItem struct {
-		ChunkID    string  `json:"chunk_id"`
-		DocID      string  `json:"doc_id"`
-		DocName    string  `json:"doc_name"`
-		Content    string  `json:"content"`
-		Score      float64 `json:"score"`
-		ChunkIndex int     `json:"chunk_index"`
-	}
-	items := make([]searchItem, 0, topK)
+	items := make([]SearchItem, 0, topK)
 	skipped := 0
 	for _, r := range results {
 		ck, ok := chunks[r.ID]
@@ -253,13 +260,14 @@ func (r *RAGTool) runSearch(params map[string]interface{}) (string, error) {
 				"chunk_id", r.ID, "score", r.Score)
 			continue
 		}
-		items = append(items, searchItem{
+		items = append(items, SearchItem{
 			ChunkID:    r.ID,
 			DocID:      ck.DocID,
 			DocName:    ck.DocName,
 			Content:    ck.Content,
 			Score:      r.Score,
 			ChunkIndex: ck.Index,
+			CreatedAt:  ck.CreatedAt,
 		})
 		if len(items) >= topK {
 			break
@@ -270,17 +278,15 @@ func (r *RAGTool) runSearch(params map[string]interface{}) (string, error) {
 			"skipped", skipped, "total_vector_results", len(results))
 	}
 
-	return jsonResult("searched", map[string]interface{}{
-		"count":   len(items),
-		"results": items,
-	})
+	return items, nil
 }
 
 type chunkInfo struct {
-	DocID   string
-	DocName string
-	Content string
-	Index   int
+	DocID     string
+	DocName   string
+	Content   string
+	Index     int
+	CreatedAt *time.Time
 }
 
 func (r *RAGTool) fetchChunks(ctx context.Context, ids []string) (map[string]chunkInfo, error) {
@@ -302,9 +308,10 @@ func (r *RAGTool) fetchChunks(ctx context.Context, ids []string) (map[string]chu
 		id := getStr(rec, "id")
 		docID := getStr(rec, "doc_id")
 		result[id] = chunkInfo{
-			DocID:   docID,
-			Content: getStr(rec, "content"),
-			Index:   getIntFromRec(rec, "chunk_index"),
+			DocID:     docID,
+			Content:   getStr(rec, "content"),
+			Index:     getIntFromRec(rec, "chunk_index"),
+			CreatedAt: parseTimeStr(getStr(rec, "created_at")),
 		}
 		docIDs[docID] = true
 	}
@@ -509,4 +516,15 @@ func jsonResult(action string, data map[string]interface{}) (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+func parseTimeStr(s string) *time.Time {
+	if s == "" {
+		return nil
+	}
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return nil
+	}
+	return &t
 }

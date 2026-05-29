@@ -74,20 +74,26 @@ func (m *MemoryTool) Run(parameters map[string]interface{}) (string, error) {
 	case "add":
 		return m.runAdd(mgr, parameters)
 	case "search":
-		return m.runSearch(mgr, parameters)
+		items, err := m.RunSearch(mgr, parameters)
+		if err != nil {
+			return "", err
+		}
+		return jsonResult("searched", map[string]interface{}{
+			"count":   len(items),
+			"results": items,
+		})
 	default:
 		return "", fmt.Errorf("unknown action: %s", action)
 	}
 }
 
-// resolveManager 从 _session_id 解析 Manager；未注入时回退到 defaultSessionID。
-func (m *MemoryTool) resolveManager(params map[string]interface{}) (*memory.Manager, error) {
-	sessionID, _ := params["_session_id"].(string)
+// GetManager 返回指定 session 的 Manager；sessionID 为空时回退到 defaultSessionID。
+func (m *MemoryTool) GetManager(sessionID string) (*memory.Manager, error) {
 	if sessionID == "" {
 		sessionID = m.getDefaultSessionID()
 	}
 	if sessionID == "" {
-		return nil, fmt.Errorf("no session: _session_id not injected and no default session set")
+		return nil, fmt.Errorf("no session: sessionID is empty and no default session set")
 	}
 	m.mu.RLock()
 	mgr, ok := m.managers[sessionID]
@@ -96,6 +102,12 @@ func (m *MemoryTool) resolveManager(params map[string]interface{}) (*memory.Mana
 		return nil, fmt.Errorf("session %q not found", sessionID)
 	}
 	return mgr, nil
+}
+
+// resolveManager 从 _session_id 解析 Manager；未注入时回退到 defaultSessionID。
+func (m *MemoryTool) resolveManager(params map[string]interface{}) (*memory.Manager, error) {
+	sessionID, _ := params["_session_id"].(string)
+	return m.GetManager(sessionID)
 }
 
 func (m *MemoryTool) getDefaultSessionID() string {
@@ -122,10 +134,10 @@ func (m *MemoryTool) runAdd(mgr *memory.Manager, p map[string]interface{}) (stri
 	})
 }
 
-func (m *MemoryTool) runSearch(mgr *memory.Manager, p map[string]interface{}) (string, error) {
+func (m *MemoryTool) RunSearch(mgr *memory.Manager, p map[string]interface{}) ([]types.MemoryItem, error) {
 	query, _ := p["query"].(string)
 	if query == "" {
-		return "", fmt.Errorf("query is required for search")
+		return nil, fmt.Errorf("query is required for search")
 	}
 	limit := toInt64(p["limit"])
 
@@ -140,7 +152,7 @@ func (m *MemoryTool) runSearch(mgr *memory.Manager, p map[string]interface{}) (s
 
 	all, err := mgr.Search(query, m.types, opts)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	sort.Slice(all, func(i, j int) bool {
@@ -150,10 +162,7 @@ func (m *MemoryTool) runSearch(mgr *memory.Manager, p map[string]interface{}) (s
 		all = all[:limit]
 	}
 
-	return jsonResult("searched", map[string]interface{}{
-		"count":   len(all),
-		"results": all,
-	})
+	return all, nil
 }
 
 func (m *MemoryTool) AddSession(sessionID string) error {
