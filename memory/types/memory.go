@@ -32,6 +32,7 @@ type SearchOptions struct {
 type MemoryItem struct {
 	ID         string            `json:"id"`
 	SessionID  string            `json:"session_id"`
+	Type       MemoryType        `json:"type"` // 记忆类型
 	Content    string            `json:"content"`
 	CreatedAt  *time.Time        `json:"created_at"`
 	Importance float64           `json:"importance"`

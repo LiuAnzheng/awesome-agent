@@ -59,6 +59,7 @@ func (w *WorkingMemory) Add(item MemoryItem) (string, error) {
 		w.items = w.items[1:]
 	}
 
+	item.Type = Working
 	w.items = append(w.items, WorkingItem{MemoryItem: item})
 	w.bm25Dirty = true
 

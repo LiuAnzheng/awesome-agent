@@ -55,6 +55,7 @@ func (e *EpisodeItem) ToMemoryItem() MemoryItem {
 	return MemoryItem{
 		ID:         e.ID,
 		SessionID:  e.SessionID,
+		Type:       Episodic,
 		Content:    e.Content,
 		CreatedAt:  e.CreatedAt,
 		Importance: e.Importance,
@@ -407,6 +408,7 @@ func recordToEpisodeItem(r store.Record) EpisodeItem {
 	episode := EpisodeItem{
 		MemoryItem: MemoryItem{
 			ID:        strVal(r["id"]),
+			Type:      Episodic,
 			Content:   strVal(r["content"]),
 			SessionID: strVal(r["session_id"]),
 			Metadata:  make(map[string]string),

@@ -111,6 +111,7 @@ func (w *Working2EpisodicCompressor) buildEpisodicItem(items []MemoryItem, outpu
 	}
 
 	return &MemoryItem{
+		Type:           Episodic,
 		Content:        output.Content,
 		Importance:     imp,
 		SourceIDs:      sourceIDs,

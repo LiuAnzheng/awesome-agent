@@ -39,6 +39,7 @@ func (s *SemanticItem) ToMemoryItem() MemoryItem {
 	return MemoryItem{
 		ID:         s.ID,
 		SessionID:  s.SessionID,
+		Type:       Semantic,
 		Content:    s.Content,
 		CreatedAt:  s.CreatedAt,
 		Importance: s.Importance,
@@ -420,6 +421,7 @@ func nodeToSemanticItem(nodeMap map[string]interface{}) SemanticItem {
 
 	item := SemanticItem{
 		MemoryItem: MemoryItem{
+			Type:     Semantic,
 			Metadata: make(map[string]string),
 		},
 		Tags: labels,
