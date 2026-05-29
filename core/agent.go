@@ -33,11 +33,12 @@ type BaseAgent struct {
 }
 
 func (agent *BaseAgent) AddMessage(message Message) {
+	if len(agent.history) > 1024 {
+		agent.history = agent.history[:512]
+	}
 	agent.history = append(agent.history, message)
 }
-func (agent *BaseAgent) ClearHistory() {
-	agent.history = []Message{}
-}
+
 func (agent *BaseAgent) History() []Message {
 	history := make([]Message, len(agent.history))
 	copy(history, agent.history)

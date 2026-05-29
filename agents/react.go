@@ -2,7 +2,9 @@ package agents
 
 import (
 	"awesome-agent/core"
+	"awesome-agent/ctx/gssc"
 	"awesome-agent/tools"
+	"awesome-agent/tools/builtins"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,6 +18,7 @@ type ReActAgent struct {
 	Executor     *tools.ToolExecutor
 	MaxSteps     int64
 	SessionID    string
+	ctxBuilder   *gssc.ContextBuilder
 }
 
 const DefaultReActSystemPrompt = `
@@ -48,13 +51,12 @@ func (ra *ReActAgent) Run(ctx context.Context, inputText string) (string, error)
 		return "", errors.New("MaxSteps must be positive")
 	}
 
-	userMsg := core.Message{Role: "user", Content: inputText}
+	userMsg := core.Message{Role: "user", Content: inputText, Timestamp: core.Now()}
 	ra.AddMessage(userMsg)
 
-	messages := ra.buildMessages()
-	schemas := ra.toolSchemas()
-
 	for step := int64(0); step < ra.MaxSteps; step++ {
+		messages := ra.buildMessages(inputText)
+		schemas := ra.toolSchemas()
 		resp, finishReason, err := ra.LLM.ChatComplete(ctx, messages, schemas, nil)
 		if err != nil {
 			return "", errors.New("LLM error: " + err.Error())
@@ -67,13 +69,13 @@ func (ra *ReActAgent) Run(ctx context.Context, inputText string) (string, error)
 			slog.Debug("agent step", "step", step, "content", resp.Content,
 				"calling", toolCallNames(resp.ToolCalls))
 			ra.injectSessionID(resp.ToolCalls)
-			messages = append(messages, resp)
+			ra.AddMessage(resp)
 			toolResults, err := ra.Executor.Execute(resp.ToolCalls)
 			if err != nil {
 				return "", errors.New("executor error: " + err.Error())
 			}
 			for _, tr := range toolResults {
-				messages = append(messages, tr)
+				ra.AddMessage(tr)
 			}
 			continue
 		}
@@ -88,12 +90,15 @@ func (ra *ReActAgent) Run(ctx context.Context, inputText string) (string, error)
 	return "unable to complete the task within the maximum steps", nil
 }
 
-func (ra *ReActAgent) buildMessages() []core.Message {
-	messages := make([]core.Message, 0, len(ra.History())+1)
-	messages = append(messages, core.Message{Role: "system", Content: ra.SystemPrompt, Timestamp: core.Now()})
-	for _, msg := range ra.History() {
-		messages = append(messages, msg)
-	}
+func (ra *ReActAgent) buildMessages(userQuery string) []core.Message {
+	cbContent := ra.ctxBuilder.Build(
+		userQuery,
+		ra.History(),
+		ra.SystemPrompt,
+		nil,
+	)
+	messages := make([]core.Message, 0)
+	messages = append(messages, core.Message{Role: "system", Content: cbContent})
 	return messages
 }
 
@@ -142,7 +147,8 @@ func NewReActAgent(name string,
 	config core.AppConfig,
 	toolRegistry *tools.ToolRegistry,
 	maxSteps int64,
-	systemPrompt string) *ReActAgent {
+	systemPrompt string,
+	sessionID string) *ReActAgent {
 
 	if systemPrompt == "" {
 		systemPrompt = DefaultReActSystemPrompt
@@ -156,11 +162,30 @@ func NewReActAgent(name string,
 		},
 		ToolRegistry: toolRegistry,
 		MaxSteps:     maxSteps,
+		SessionID:    sessionID,
 	}
 	if toolRegistry != nil {
 		ra.Executor = tools.NewToolExecutor(toolRegistry)
 	} else {
 		slog.Warn("no tool registry found")
 	}
+
+	var mt *builtins.MemoryTool
+	var rt *builtins.RAGTool
+	if toolRegistry != nil {
+		if t, ok := toolRegistry.Tool("memory"); ok {
+			mt, _ = t.(*builtins.MemoryTool)
+		}
+		if t, ok := toolRegistry.Tool("rag"); ok {
+			rt, _ = t.(*builtins.RAGTool)
+		}
+	}
+	ra.ctxBuilder = gssc.NewContextBuilder(
+		config.ContextConfig,
+		mt,
+		rt,
+		ra.SessionID,
+	)
+
 	return ra
 }

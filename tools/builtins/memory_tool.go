@@ -251,7 +251,7 @@ func NewMemoryTool(
 	}
 
 	if slices.Contains(mt.types, types.Working) && slices.Contains(mt.types, types.Episodic) {
-		llm, err := core.NewAwesomeLLM(core.LLMConfig{
+		llm, err := core.NewLLM(core.LLMConfig{
 			ModelID:         config.LLMConfig.ModelID,
 			BaseURL:         config.LLMConfig.BaseURL,
 			MaxTokens:       config.LLMConfig.MaxTokens,

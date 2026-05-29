@@ -118,7 +118,7 @@ func NewRAGTool(
 
 	// 如果开启高级特性
 	if enableMQE || enableHyDE {
-		llm, err := core.NewAwesomeLLM(core.LLMConfig{
+		llm, err := core.NewLLM(core.LLMConfig{
 			ModelID:         config.LLMConfig.ModelID,
 			BaseURL:         config.LLMConfig.BaseURL,
 			MaxTokens:       config.LLMConfig.MaxTokens,

@@ -241,7 +241,7 @@ type StreamChunk struct {
 	Err          error
 }
 
-func NewAwesomeLLM(llmConfig LLMConfig) (LLMInterface, error) {
+func NewLLM(llmConfig LLMConfig) (LLMInterface, error) {
 	llmClient := &AwesomeLLM{}
 
 	llmClient.provider = llmConfig.Provider
