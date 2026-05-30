@@ -1,454 +1,495 @@
 <p align="center">
-  <h1 align="center">🦾 AwesomeAgent</h1>
-  <p align="center"><b>Go 语言 AI Agent 应用框架</b></p>
-  <p align="center">
-    <img src="https://img.shields.io/badge/go-1.25+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go">
-    <img src="https://img.shields.io/badge/LLM-OpenAI%20Compatible-412991?style=flat-square&logo=openai&logoColor=white" alt="LLM">
-    <img src="https://img.shields.io/badge/DB-SQLite%20%7C%20Qdrant%20%7C%20Neo4j-003B57?style=flat-square" alt="Database">
-    <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
-  </p>
+  <h1 align="center">🤖 AwesomeAgent</h1>
+  <p align="center"><strong>基于 ReAct 范式的 AI Agent 框架</strong></p>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/go-1.25-00ADD8?style=flat&logo=go" alt="Go 1.25">
+  <img src="https://img.shields.io/badge/LLM-OpenAI_Compatible-412991?style=flat&logo=openai" alt="OpenAI Compatible">
+  <img src="https://img.shields.io/badge/storage-Qdrant-FF6F00?style=flat" alt="Qdrant">
+  <img src="https://img.shields.io/badge/graph-Neo4j-4581C3?style=flat&logo=neo4j" alt="Neo4j">
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat" alt="License">
 </p>
 
 ---
 
-**AwesomeAgent** 是一个 Go 语言实现的 AI Agent 框架，提供构建 LLM 驱动智能体所需的核心基础设施。它将 **ReAct 推理循环**、**分层记忆系统**、**RAG 检索增强生成**、**可插拔工具系统** 四大能力整合为一个统一的运行时。
+LLM 推理与工具调用循环 · 多层记忆系统 (Working → Episodic → Semantic) · RAG 文档检索 · 上下文构建管线 (GSSC)
 
 ---
 
-## 目录
+## 📖 目录
 
-- [核心设计](#核心设计)
-- [快速开始](#快速开始)
-- [ReAct Agent](#react-agent)
-- [分层记忆系统](#分层记忆系统)
-- [RAG 检索增强生成](#rag-检索增强生成)
-- [工具系统](#工具系统)
-- [LLM 客户端](#llm-客户端)
-- [存储后端](#存储后端)
-- [项目结构](#项目结构)
+- [架构总览](#-架构总览)
+- [核心流程](#-核心流程)
+  - [ReAct 推理循环](#1--react-推理循环)
+  - [上下文构建管线 GSSC](#2--上下文构建管线--gssc)
+  - [多层记忆系统](#3--多层记忆系统)
+  - [RAG 文档检索](#4--rag-文档检索)
+  - [工具系统](#5--工具系统)
+  - [LLM 客户端](#6-llm-客户端)
+  - [配置系统](#7--配置系统)
+- [快速开始](#-快速开始)
+- [模块依赖](#-模块依赖)
+- [设计要点](#-设计要点)
 
 ---
 
-## 核心设计
+## 🏗 架构总览
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   ReAct Agent                        │
-│   ┌─────────┐    ┌─────────┐    ┌───────────────┐  │
-│   │ Reason  │───▶│  Act    │───▶│  Observe      │  │
-│   │ (LLM)   │◀───│ (Tools) │    │  (Results)    │  │
-│   └─────────┘    └─────────┘    └───────────────┘  │
-│                         │                            │
-│         ┌───────────────┼───────────────┐           │
-│         ▼               ▼               ▼           │
-│   ┌──────────┐  ┌────────────┐  ┌────────────┐     │
-│   │ Memory   │  │ RAG Tool   │  │ Web Search │     │
-│   │ Tool     │  │            │  │ Tool       │     │
-│   └────┬─────┘  └─────┬──────┘  └─────┬──────┘     │
-│        │              │               │             │
-│   ┌────┴────┐    ┌────┴────┐    ┌─────┴──────┐     │
-│   │Working  │    │ Parse   │    │  Tavily    │     │
-│   │Episodic │    │ Chunk   │    │  SerpAPI   │     │
-│   │Semantic │    │ Embed   │    └────────────┘     │
-│   └─────────┘    │ Store   │                        │
-│                  └─────────┘                        │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                        agents/react                         │
+│                     ┌─────────────────┐                     │
+│                     │   ReActAgent    │                     │
+│                     │  think → act →  │                     │
+│                     │   observe 循环  │                     │
+│                     └───────┬─────────┘                     │
+│           ┌─────────────────┼─────────────────┐             │
+│           ▼                 ▼                  ▼             │
+│  ┌────────────────┐ ┌──────────────┐ ┌──────────────────┐  │
+│  │   ctx/gssc     │ │    tools     │ │     memory       │  │
+│  │  Gatherer      │ │  ToolRegistry│ │   Manager        │  │
+│  │  Selector      │ │  ToolExecutor│ │   ┌─Working(inmem)  │
+│  │  Structurer    │ │  Chain       │ │   ├─Episodic(sqlite+qdrant)
+│  └───────┬────────┘ │  ┌──────────┐│ │   ├─Semantic(neo4j+qdrant)
+│          │          │  │ builtins ││ │   └─Perceptual(stub)
+│          │          │  ├─Memory   ││ │                    │
+│          │          │  ├─RAG      ││ │   store/impl       │
+│          │          │  └─WebSearch││ │   ├─SQLite         │
+│          │          │  └──────────┘│ │   ├─Qdrant         │
+│          │          └──────────────┘ │   ├─Neo4j          │
+│          │                           │   └─OpenAIEmbed    │
+│          │                           └──────────────────┘  │
+│          ▼                                                  │
+│  ┌─────────────────────────────────────────────┐            │
+│  │                  core                        │            │
+│  │  BaseAgent  │  LLMInterface(OpenAI HTTP)     │            │
+│  │  Message    │  Config(viper + YAML)          │            │
+│  └─────────────────────────────────────────────┘            │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 | 模块 | 职责 |
-|:---|:---|
-| `agents/` | ReAct 推理-行动 Agent |
-| `core/` | 配置加载 · LLM 客户端 · 消息协议 |
-| `memory/` | 记忆系统 · RAG 流水线 · 检索算法 |
-| `tools/` | 工具接口 · 注册/执行 · 调用链编排 |
+|:-----|:-----|
+| `core/` | `BaseAgent` 基类、OpenAI 兼容 HTTP 客户端、多模态 `Message`、Viper 配置管理 |
+| `agents/` | `ReActAgent` —— 推理-行动循环，串联 LLM / 工具 / 上下文 |
+| `tools/` | `Tool` 接口定义 + `ToolRegistry` 注册中心 + `ToolExecutor` 执行器 + `Chain` 多步编排 |
+| `tools/builtins/` | 内置工具：`MemoryTool`、`RAGTool`、`WebSearchTool` |
+| `ctx/gssc/` | GSSC 上下文构建管线：`Gatherer` → `Selector` → `Structurer` → `ContextBuilder` |
+| `memory/` | 多层级记忆管理器 + 记忆类型定义 (Working/Episodic/Semantic) |
+| `memory/store/` | 存储接口抽象：`StructuredStore` / `VectorStore` / `GraphStore` / `EmbeddingService` |
+| `memory/store/impl/` | 驱动实现：SQLite、Qdrant、Neo4j、OpenAI Embedding |
+| `memory/retrieval/` | BM25 评分器、稀疏向量、中文分词器 (gse) |
+| `memory/rag/` | 文档摄入管线 + 高级检索 (MQE 查询扩展、HyDE 假设文档、RRF 融合) |
+| `mcp/` | MCP 协议桩（预留） |
 
 ---
 
-## 快速开始
+## ⚙ 核心流程
 
-### 前置依赖
+### 1. 🧠 ReAct 推理循环
 
-| 服务 | 用途 | 必需 |
-|:---|:---|:---:|
-| Go 1.25+ | 编译运行 | ✓ |
-| Qdrant | 向量存储 | ✓ |
-| OpenAI 兼容 API | LLM + Embedding | ✓ |
-| Neo4j | 语义记忆（图存储） | 可选 |
-
-### 安装
-
-```bash
-git clone https://github.com/your-org/AwesomeAgent.git
-cd AwesomeAgent
-go mod download
+```
+      ┌──────────┐      ┌──────────────┐      ┌──────────┐
+      │  Build   │─────▶│   LLM Call   │─────▶│ ToolCall?│
+      │ Context  │      │ (system+user)│      └────┬─────┘
+      └──────────┘      └──────────────┘       是 │   否
+                                                     │    │
+      ┌──────────────────────────────────────────┐    │
+      │  ToolExecutor.Execute(tool_calls)         │    │
+      │  · 注入 _session_id 到工具参数            │    │
+      │  · 逐工具执行并收集结果为 tool message    │◀───┘
+      │  · 回到 Build Context 进入下一轮          │
+      └──────────────────────────────────────────┘
+                                                     │
+                                          ┌──────────▼──────────┐
+                                          │  return final answer │
+                                          └─────────────────────┘
 ```
 
-### 配置
+| 步骤 | 动作 |
+|:----:|:-----|
+| ① | 通过 GSSC 管线聚合系统指令、记忆检索、RAG 检索、历史消息 |
+| ② | 向 LLM 发送 `[system, user]` 消息，携带工具 Function Calling Schema |
+| ③ | LLM 返回 `tool_calls` → 自动注入 `_session_id` → 执行工具 → 收集结果 → 循环 |
+| ④ | LLM 返回 `stop` → 返回最终答案 |
 
-创建 `app-config.yaml`，敏感信息通过环境变量注入：
+---
+
+### 2. 📐 上下文构建管线 — GSSC
+
+```
+  ┌──────────┐     ┌──────────┐     ┌───────────┐     ┌──────────┐
+  │ Gatherer │────▶│ Selector │────▶│ Structurer│────▶│  System  │
+  │  收集     │     │  筛选     │     │  结构化    │     │  Prompt  │
+  └──────────┘     └──────────┘     └───────────┘     └──────────┘
+       │                │                 │
+       ▼                ▼                 ▼
+  ┌─────────┐    综合评分排序        按来源分节
+  │· 系统指令│    ┌─────────────┐    ┌──────────────┐
+  │· 记忆搜索│    │ relevance   │    │Role&Policies │
+  │· RAG搜索│    │  × Jaccard  │    │Task          │
+  │· 历史消息│    │ recency     │    │Evidence      │
+  └─────────┘    │  × expDecay │    │Context       │
+                 └─────────────┘    │Output        │
+                                    └──────────────┘
+```
+
+**Gatherer** — 从四个来源收集 `ContextPacket`：
+
+| 来源 | 说明 |
+|:-----|:-----|
+| `SystemInstructions` | Agent 的 System Prompt，相关性固定 1.0 |
+| `Memory` | 调用 `MemoryTool.RunSearch()` 检索相关记忆 |
+| `RAG` | 调用 `RAGTool.RunSearch()` 检索文档块 |
+| `History` | 最近 32 条历史消息，相关性固定 0.6 |
+
+**Selector** — 综合评分 = `relevance_weight × Jaccard 相似度` + `recency_weight × 指数衰减时新度`。语义记忆（抽象知识）跳过时新度衰减。在 token 预算内按分数从高到低截断。
+
+**Structurer** — 将筛选后的 ContextPacket 按来源分配到结构化模板：
+
+```
+[Role & Policies]
+<系统指令原文>
+
+[Task]
+<用户查询原文>
+
+[Evidence]
+<RAG 检索到的文档块 / 语义记忆>
+
+[Context]
+<工作记忆 / 情景记忆 / 历史消息>
+
+[Output]
+Please provide an accurate and well-founded answer...
+```
+
+---
+
+### 3. 🧬 多层记忆系统
+
+```
+   Working (内存)                    Episodic (SQLite + Qdrant)           Semantic (Neo4j + Qdrant)
+  ┌─────────────────┐   压缩触发    ┌─────────────────────────┐         ┌──────────────────────────┐
+  │  BM25 关键词检索  │───(90%满)──▶│  向量检索 + 时新度评分    │         │  向量检索 + 图共现评分      │
+  │  FIFO 淘汰        │             │  含因果关系网络           │         │  跨会话抽象知识图谱         │
+  │  容量: 1024       │             │  score = (cos×0.8 +      │         │  score = (cos×0.7 +        │
+  └─────────────────┘             │         recency×0.2) ×    │         │          graph×0.3) ×      │
+                                   │         (0.8 + imp×0.4)  │         │          (0.8 + imp×0.4)  │
+                                   └─────────────────────────┘         └──────────────────────────┘
+```
+
+<blockquote>
+📌 <strong>记忆压缩流程</strong>：Working 达到 90% 容量 → CAS 加锁 → 取最早 30 条快照 → LLM 调用 <code>compress_memory</code> function → 输出叙事+摘要+重要性+事件类型 → 写入 Episodic → 删除源 Working 条目
+</blockquote>
+
+<blockquote>
+💡 <strong>LLM 行为约束</strong>：MemoryTool 的 System Prompt 强制 LLM 每轮对话前 <code>search</code>、每轮对话后 <code>add</code>，跳过即永久遗忘。
+</blockquote>
+
+---
+
+### 4. 📚 RAG 文档检索
+
+#### 摄入管线
+
+```
+  文件                    分块                     向量化                   存储
+┌──────┐   ┌──────────┐   ┌──────────────────┐   ┌──────────────┐   ┌──────────────┐
+│ .txt │   │          │   │ RecursiveChunker  │   │              │   │  SQLite      │
+│ .md  │──▶│ Parser   │──▶│ · 标题层级递归     │──▶│ OpenAI Embed │──▶│  (元数据)     │
+│ .html│   │ Registry │   │ · 段落→行→字符降级  │   │ · 批量请求    │   │  Qdrant      │
+│ .csv │   │ 16种格式  │   │ SemanticChunker   │   │ · 3次重试     │   │  (向量)       │
+│ .json│   │ → Markdown│   │ · 语义断点检测     │   │ · 指数退避    │   └──────────────┘
+│ .xml │   └──────────┘   │ · embedding回退    │   └──────────────┘
+│ ...  │                  └──────────────────┘
+└──────┘
+```
+
+| 阶段 | 关键细节 |
+|:-----|:-----|
+| 解析 | `NativeParser` 支持 16 种格式，结构化格式（JSON/YAML/XML）按层级渲染为 Markdown 标题树，HTML 转为 Markdown |
+| 分块 | `RecursiveChunker`（按标题层级）/ `SemanticChunker`（句子 Embedding → 余弦相似度 → 自适应阈值断点） |
+| 去重 | SHA256 内容哈希，入库前检查 `rag_documents.sha256` 索引 |
+| 重试 | Embedding 批量请求 3 次指数退避（1s → 2s → 4s），4xx 错误不重试 |
+| 容错 | Qdrant 写入失败时标记状态 `vector_pending` 保留数据，不级联回滚 |
+
+#### 高级检索
+
+```
+   User Query
+       │
+       ├──── 原始查询 ─────────────┐
+       ├──── MQE × 3 (LLM 扩展) ──┼── 5 路并行向量搜索 ──▶ RRF 融合排序 ──▶ Top-K 结果
+       └──── HyDE (LLM 生成文档) ─┘                              (k=60)
+```
+
+| 特性 | 说明 |
+|:-----|:-----|
+| **MQE** | LLM 生成 3 个语义等价/互补的变体查询，扩充召回覆盖面 |
+| **HyDE** | LLM 生成一份假设性百科文档，用文档向量搜索（文档↔文档 优于 查询↔文档） |
+| **RRF** | Reciprocal Rank Fusion (k=60)，多路检索结果融合排序，不同来源的排名公平竞争 |
+
+---
+
+### 5. 🔧 工具系统
+
+接口定义：
+
+```go
+type Tool interface {
+    Name() string
+    Description() string
+    Run(params map[string]interface{}) (string, error)
+    Parameters() []ToolParameter
+}
+```
+
+通过 `ToolToOpenAISchema()` 自动转换为 OpenAI Function Calling JSON Schema。
+
+#### 内置工具
+
+| 工具 | 注册名 | 能力 | 数据流 |
+|:-----|:-------|:-----|:-------|
+| **MemoryTool** | `memory_tool` | `add` 写入记忆 / `search` 语义检索 | 多 Session 隔离，`_session_id` 自动路由 |
+| **RAGTool** | `rag_tool` | `search` 向量检索 / `list` 浏览 / `delete` 删除 / `status` 查询 | 强制引用格式：`[N] doc_name, chunk N (score: X.XX)` |
+| **WebSearchTool** | `web_search_tool` | Tavily / SerpAPI 双引擎网络搜索 | 自动降级：Tavily 失败 → SerpAPI |
+
+#### 工具链 (Chain)
+
+将多个工具调用封装为一个复合工具，对 LLM 暴露单一接口。
+
+```
+Chain: "综合调研"
+  ├── Step 1: web_search  ──(storeAs: search_result)──┐
+  ├── Step 2: memory_search ──(storeAs: memory)        │
+  │                                                    │
+  └── Step 3: LLM 分析                                  │
+        prompt: "基于 $steps.search_result 和           │
+                $steps.memory 给出结论"  ◀──────────────┘
+```
+
+| 模式 | 行为 | 约束 |
+|:-----|:-----|:-----|
+| **串行** | 按序执行，`$steps.xxx` 引用前面步骤的输出 | 只能引用已完成的步骤 |
+| **并行** | 相邻 `Parallel=true` 步骤并发执行 | 禁止同组内互相引用、禁止自引用 |
+
+---
+
+### 6. 🔌 LLM 客户端
+
+- 协议：OpenAI 兼容 Chat Completions API (`POST /chat/completions`)
+- 模式：同步 `ChatComplete` + 流式 `ChatStream`（SSE 逐行解析）
+- 适配：通过 `BaseURL` + `APIKey` 可接入任何 OpenAI 兼容服务
+- 消息：支持文本 + 多模态（`image_url` / `input_audio` / `file` 类型的 `ContentPart` 数组）
+
+---
+
+### 7. 🗂 配置系统
+
+`app-config.yaml` → Viper 加载 → 环境变量 `${VAR}` 展开 → 默认值兜底。
+
+```
+awesome-agent
+├── llm              模型、API Key、BaseURL、采样参数
+├── memory
+│   ├── structure    结构化存储驱动 (sqlite)
+│   ├── embedding    向量化服务驱动 (openai)
+│   ├── vector_store 向量数据库驱动 (qdrant)
+│   └── graph        图数据库驱动 (neo4j)
+├── rag              文档大小上限、集合名
+└── context          token 预算、保留比、相关性/时新度权重
+```
+
+<details>
+<summary>📄 完整配置示例（点击展开）</summary>
 
 ```yaml
 awesome-agent:
   llm:
-    model_id: deepseek-v4-pro
-    provider: deepseek
+    model_id: "qwen3.5-omni-plus-2026-03-15"
+    provider: "dashscope"
     api_key: ${LLM_API_KEY}
     base_url: ${LLM_BASE_URL}
-  rag:
-    max_doc_size: 52428800          # 50 MB
-    collection: rag
+    max_tokens: 65535
+    temperature: 0.7
+    top_p: 1.0
+
   memory:
     structure:
-      driver: sqlite
+      driver: "sqlite"
       options:
-        db_path: ./data/memory.db
+        db_path: "./data/memory.db"
     embedding:
-      driver: openai
+      driver: "openai"
       options:
-        model_id:  text-embedding-v4
-        api_key:   ${EMBEDDING_API_KEY}
-        base_url:  ${EMBEDDING_BASE_URL}
+        model_id: "text-embedding-v4"
+        api_key: ${EMBEDDING_API_KEY}
+        base_url: ${EMBEDDING_BASE_URL}
         dimension: 1024
         batch_size: 10
     vector_store:
-      driver: qdrant
+      driver: "qdrant"
       options:
-        host: 192.168.187.100
+        host: "192.168.187.100"
         port: 6333
     graph:
-      driver: neo4j
+      driver: "neo4j"
       options:
-        url:      http://192.168.187.100:7474
-        db:       neo4j
-        username: neo4j
+        url: "http://192.168.187.100:7474"
+        db: "neo4j"
+        username: "neo4j"
         password: ${NEO4J_PASSWORD}
+
+  rag:
+    max_doc_size: 52428800
+    collection: "rag"
+
+  context:
+    max_tokens: 102400
+    reserve_ratio: 0.2
+    min_relevance: 0.1
+    enable_compression: true
+    recency_weight: 0.3
+    relevance_weight: 0.7
 ```
+</details>
+
+所有存储后端使用统一的 **Driver 模式**：
+
+```yaml
+{backend}:
+  driver: "驱动名"         # 选择实现
+  options:                # 驱动专用参数，自由键值对
+    key1: value1
+    key2: value2
+```
+
+| 后端 | 可用驱动 | 接口 |
+|:-----|:---------|:-----|
+| `structure` | `sqlite` | `StructuredStore` |
+| `embedding` | `openai` | `EmbeddingService` |
+| `vector_store` | `qdrant` | `VectorStore` |
+| `graph` | `neo4j` | `GraphStore` |
+
+---
+
+## 🚀 快速开始
+
+### 环境要求
+
+| 组件 | 版本 / 说明 |
+|:-----|:-----|
+| Go | ≥ 1.25 |
+| Qdrant | 向量数据库（当前唯一 VectorStore 驱动） |
+| Neo4j | 图数据库（仅 Semantic 记忆需要） |
+| LLM API | OpenAI 兼容接口（模型 + Embedding） |
+
+### 启动
 
 ```bash
-export LLM_API_KEY="sk-xxx"
-export LLM_BASE_URL="https://api.deepseek.com/v1"
-export EMBEDDING_API_KEY="sk-xxx"
-export EMBEDDING_BASE_URL="https://api.deepseek.com/v1"
-export NEO4J_PASSWORD="your-password"
+# 1. 安装依赖
+go mod download
+
+# 2. 准备配置文件
+cp app-config.yaml.example app-config.yaml
+# 编辑 app-config.yaml，填入 API Key 和服务地址
+
+# 3. 创建数据目录
+mkdir -p ./data
+
+# 4. 运行 Demo
+go run ./test/main/
 ```
 
-### Hello World
+### 最小可用示例
 
 ```go
 package main
 
 import (
-    "context"
     "awesome-agent/agents"
     "awesome-agent/core"
+    "awesome-agent/memory/rag/ingestion/chunker"
     "awesome-agent/memory/types"
     "awesome-agent/tools"
     "awesome-agent/tools/builtins"
+    "context"
 )
 
 func main() {
-    core.LoadConfig("app-config.yaml")
+    sessionID := "my-session-uuid"
 
-    llm, _ := core.NewAwesomeLLM(core.AppCfg.LLMConfig, core.AppCfg.AgentConfig)
+    // 加载配置
+    core.LoadConfig("./app-config.yaml")
+
+    // 创建 LLM 客户端
+    llm, _ := core.NewLLM(core.AppCfg.LLMConfig)
+
+    // 注册工具
     registry := tools.NewToolRegistry()
-
-    // 挂载记忆工具
-    tool, _ := builtins.NewMemoryTool(core.AppCfg, types.AvailableMemoryTypes,
-        nil, nil, nil, nil)
-    mt := tool.(*builtins.MemoryTool)
-    mt.AddSession("your-session-uuid")
+    mt, _ := builtins.NewMemoryTool(core.AppCfg, types.AvailableMemoryTypes, nil, nil, nil, nil)
+    rt, _ := builtins.NewRAGTool(nil, nil, nil, core.AppCfg, chunker.Semantic, true, true)
     registry.Register(mt)
+    registry.Register(rt)
 
-    // 创建 Agent 并运行
-    agent := agents.NewReActAgent("my-agent", llm,
-        core.AppCfg.AgentConfig, registry, 1024, "")
-    answer, _ := agent.Run(context.Background(), "你好，请问你能帮我做什么？")
+    // 摄入知识库文档
+    ragTool := rt.(*builtins.RAGTool)
+    ragTool.Ingest(context.Background(), "./knowledge_base/people.txt", "people.txt")
+
+    // 创建 Agent 并对话
+    agent, _ := agents.NewReActAgent("demo", llm, core.AppCfg, registry, 1024, "", sessionID)
+    answer, _ := agent.Run(context.Background(), "技术研发中心里的高级工程师有哪几位？")
     println(answer)
 }
 ```
 
 ---
 
-## ReAct Agent
+## 📊 模块依赖
 
 ```
-┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
-│  User    │ ──▶ │  LLM     │ ──▶ │  Tool    │ ──▶ │  LLM     │
-│  Input   │     │  Think   │     │  Execute │     │  Answer  │
-└──────────┘     └──────────┘     └──────────┘     └──────────┘
-                      │                │                │
-                      │  tool_calls    │   results      │  no tool_calls
-                      │  + reasoning   │                │  → final answer
-                      ▼                ▼                ▼
-                  循环继续 ──────────────────────────── 结束
-```
-
-Agent 收到用户输入后，进入 **Reason → Act → Observe** 循环：
-
-1. **Reason** — LLM 分析问题，将推理过程写入 `content`
-2. **Act** — 如需外部信息，LLM 返回 `tool_calls` 调用工具
-3. **Observe** — 工具执行结果反馈给 LLM，继续推理
-4. **Answer** — LLM 判定信息充足，`content` 直接输出最终答案
-
-### 配置参数
-
-| 参数 | 类型 | 说明 |
-|:---|:---|:---|
-| `MaxSteps` | `int64` | 最大推理步数，防止无限循环 |
-| `SystemPrompt` | `string` | 自定义系统提示词，为空时使用内置默认值 |
-| `ToolRegistry` | `*ToolRegistry` | 工具注册器，自动转为 OpenAI Function Calling Schema |
-
----
-
-## 分层记忆系统
-
-受认知科学启发，实现 **Working → Episodic → Semantic** 三层递进式记忆架构。
-
-```
-┌──────────────────────────────────────────────────┐
-│                  记忆层次                         │
-│                                                  │
-│  ┌────────────┐   压缩触发 (90% 容量)             │
-│  │  Working   │──────────────────────┐           │
-│  │  内存·BM25 │  LLM 摘要 → Episodic │           │
-│  │  ~1024 条  │                      ▼           │
-│  └────────────┘            ┌────────────┐        │
-│   FIFO · 过期清理           │  Episodic  │        │
-│                             │ SQLite+Qdrant       │
-│  ┌────────────┐            │  向量+时间+重要性     │
-│  │ Semantic   │            └────────────┘        │
-│  │ Neo4j+Qdrant                                   │
-│  │  知识图谱  │                                    │
-│  └────────────┘                                   │
-└──────────────────────────────────────────────────┘
-```
-
-### 三级记忆对比
-
-| | Working | Episodic | Semantic |
-|:---|:---|:---|:---|
-| **生命周期** | 单会话 | 跨会话持久 | 永久 |
-| **存储** | 内存 (Go slice) | SQLite + Qdrant | Neo4j + Qdrant |
-| **检索算法** | BM25 关键词 | 向量相似度 × 时间衰减 × 重要性 | 向量搜索 + 图邻域重叠 |
-| **容量** | 1024 条（可配） | 无上限 | 无上限 |
-| **淘汰策略** | FIFO + TTL 过期 | 手动删除 | 手动删除 |
-
-### 自动压缩
-
-工作记忆达到 **90% 容量**时，自动触发 LLM 压缩流程：
-
-1. 取最旧的 30 条记忆快照
-2. LLM 摘要为一条结构化情景记忆（摘要 · 事件类型 · 重要性）
-3. 情景记忆写入 SQLite + Qdrant
-4. 清理工作记忆中已压缩条目
-
-压缩过程使用 **CAS 原子锁**，防止并发重复压缩。
-
-### BM25 检索
-
-工作记忆基于 Lucene 标准的 **BM25** 算法实现关键词检索：
-
-- 中文分词：`go-ego/gse`，区分 **索引切分**（宽口径）和 **查询切分**（精准模式）
-- 倒排索引增量重建（仅在脏数据时触发）
-- 可配置 `k1` 和 `b` 参数
-
----
-
-## RAG 检索增强生成
-
-### 摄入流水线
-
-```
-┌────────┐    ┌────────┐    ┌────────┐    ┌────────┐
-│ Parse  │───▶│ Chunk  │───▶│ Embed  │───▶│ Store  │
-└────────┘    └────────┘    └────────┘    └────────┘
- 16 种格式      递归切分      批量+重试     SQLite+Qdrant
- 统一 Markdown  512/50 默认   指数退避      SHA-256 去重
-                                          事务性回滚
-```
-
-### 文档格式支持
-
-> `txt` · `md` · `markdown` · `html` · `htm` · `csv` · `json` · `xml` · `log` · `yaml` · `yml` · `toml` · `ini` · `cfg` · `conf` · `env`
-
-非 Markdown 格式（CSV、JSON、XML、HTML、YAML、TOML）自动转换为结构化 Markdown 后再分块，确保下游处理一致。
-
-### 高级检索
-
-| 特性 | 原理 | 效果 |
-|:---|:---|:---|
-| **MQE** | LLM 生成 3 个语义多样查询变体 | 提升召回覆盖率 |
-| **HyDE** | LLM 生成假设性答案段落再向量化检索 | 缩小语义鸿沟 |
-| **RRF** | 多查询结果融合重排序 (k=60) | 稳定排序质量 |
-
-所有变体查询 **并行执行**（goroutine），最终通过 RRF 合并为 `topK` 条结果。
-
-### 使用 RAG
-
-```go
-rt, _ := builtins.NewRAGTool(nil, nil, nil, core.AppCfg, true, true)
-ragTool := rt.(*builtins.RAGTool)
-
-// 摄入文档到知识库
-ragTool.Ingest(context.Background(), "./docs/api-spec.md", "api-spec.md")
-
-registry.Register(rt)
-agent := agents.NewReActAgent("rag-agent", llm,
-    core.AppCfg.AgentConfig, registry, 1024, "")
-agent.Run(ctx, "API 鉴权规范是什么？")
+ ┌────────────────────────────────────────────────────────────────┐
+ │                        依赖方向 →                              │
+ │                                                               │
+ │  agents ─────────────────────────────────────────────┐        │
+ │    │ 依赖: core, ctx/gssc, tools, tools/builtins     │        │
+ │    │                                                 │        │
+ │  ctx/gssc ──────────────────────────────┐            │        │
+ │    │ 依赖: core, ctx, tools/builtins     │            │        │
+ │    │                                     │            │        │
+ │  tools/builtins ────────────┐            │            │        │
+ │    │ 依赖: core, tools, memory          │            │        │
+ │    │                         │          │            │        │
+ │  tools ─────────┐           │          │            │        │
+ │    │ 依赖: core  │           │          │            │        │
+ │    │             │           │          │            │        │
+ │  memory ────────┤           │          │            │        │
+ │    │ 依赖: core  │           │          │            │        │
+ │    ├─ types ────┤           │          │            │        │
+ │    │  依赖: core, store, retrieval     │            │        │
+ │    ├─ rag ──────┤           │          │            │        │
+ │    │  依赖: core, store    │          │            │        │
+ │    ├─ retrieval─┘           │          │            │        │
+ │    │  依赖: 外部 gse        │          │            │        │
+ │    └─ store/impl ───────────┘          │            │        │
+ │       依赖: store 接口                 │            │        │
+ │                                        │            │        │
+ │  core ─────────────────────────────────┘───────────┘────────  │
+ │   无内部依赖（基础类型、配置、LLM HTTP 客户端）                │
+ └────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 工具系统
+## 💡 设计要点
 
-### 架构
-
-```
-┌─────────────────────────────────────────┐
-│               Tool Interface             │
-│  Name() · Description() · Run() · Parameters()
-└────────────┬────────────────────────────┘
-             │
-    ┌────────┴────────┐
-    │                 │
-    ▼                 ▼
-┌─────────┐    ┌────────────┐
-│Registry │    │  Executor  │    ┌─────────────────┐
-│ 注册/查找 │    │ 校验·执行   │    │     Chain       │
-└─────────┘    └────────────┘    │ 串行/并行编排     │
-                                 │ $input / $steps  │
-                                 └─────────────────┘
-```
-
-### 内置工具
-
-| 工具 | 操作 | 能力 |
-|:---|:---|:---|
-| **RAGTool** | `search` · `list` · `status` · `delete` | 文档知识库向量检索与来源引用 |
-| **MemoryTool** | `add` · `search` | 跨会话持久记忆，多 Session 管理 |
-| **WebSearchTool** | — | Tavily + SerpAPI 双后端故障切换 |
-
-### 工具链 (Chain)
-
-Chain 将多个工具编排为有序步骤，对外暴露为单一 Tool——LLM 无感知：
-
-```go
-chain := tools.MustNewChain(
-    "deep-research",
-    "先查本地知识库 → 再查记忆 → 最后搜索网络",
-    []tools.ToolParameter{
-        {Name: "query", Type: tools.ParamString, Required: true},
-    },
-    []tools.ChainStep{
-        // 步骤 1+2 并行执行
-        {ToolName: "RAG",   StoreAs: "rag", ParamMap: map[string]string{
-            "action": `"search"`, "query": "$input.query",
-        }, Parallel: true},
-        {ToolName: "memory", StoreAs: "mem", ParamMap: map[string]string{
-            "action": `"search"`, "query": "$input.query",
-        }, Parallel: true},
-        // 步骤 3 串行（可引用前面结果）
-        {ToolName: "web_search", StoreAs: "web", ParamMap: map[string]string{
-            "query": "$input.query",
-        }},
-    },
-    registry,
-)
-```
-
-**编译时安全校验**：构造阶段即检测并行步骤间的依赖冲突、StoreAs 重名、循环引用，违规直接 panic。
-
-**数据流**：`$input.xxx` 引用 Chain 入参，`$steps.xxx` 引用前置步骤输出。
-
----
-
-## LLM 客户端
-
-`AwesomeLLM` — OpenAI 兼容协议客户端。
-
-| 方法 | 模式 | 说明 |
-|:---|:---|:---|
-| `ChatComplete(ctx, msgs, tools, extra)` | 同步 | 标准请求-响应 |
-| `ChatStream(ctx, msgs, tools, extra)` | SSE 流式 | 逐 token 推送 |
-
-- 可配置 `BaseURL`，兼容 DeepSeek 等任意 OpenAI 接口协议的服务
-- 完整支持 Function Calling（Tool Calling）
-- 流式响应自动解析 `data:` 帧和 `[DONE]` 终止符
-
----
-
-## 存储后端
-
-所有组件通过接口抽象，驱动可插拔替换：
-
-| 抽象层 | 接口 | 当前驱动 | 实现文件 |
-|:---|:---|:---|:---|
-| 结构化存储 | `StructuredStore` | SQLite | `store/impl/sqlite.go` |
-| 向量存储 | `VectorStore` | Qdrant | `store/impl/qdrant.go` |
-| 图存储 | `GraphStore` | Neo4j | `store/impl/neo4j.go` |
-| Embedding | `EmbeddingService` | OpenAI 兼容 | `store/impl/openai_embedding.go` |
-
-扩展新驱动只需实现对应接口，在 `app-config.yaml` 中切换 `driver` 字段即可。
-
----
-
-## 项目结构
-
-```
-AwesomeAgent/
-├── agents/
-│   └── react.go                         # ReAct Agent — 推理-行动循环
-├── core/
-│   ├── config.go                        # Viper YAML 配置加载
-│   ├── llm.go                           # OpenAI 兼容 LLM 客户端
-│   ├── message.go                       # 消息类型（OpenAI 协议对齐）
-│   ├── agent.go                         # Agent 基类
-│   └── time.go                          # 时区工具
-├── memory/
-│   ├── manager.go                       # 记忆管理器 — 编排各类型
-│   ├── types/
-│   │   ├── types.go                     # 类型定义 & 常量
-│   │   ├── working.go                   # 工作记忆 — 内存 BM25
-│   │   ├── episodic.go                  # 情景记忆 — SQLite+Qdrant
-│   │   ├── semantic.go                  # 语义记忆 — Neo4j+Qdrant
-│   │   └── compressor.go               # LLM 压缩器 — Working→Episodic
-│   ├── store/
-│   │   ├── store.go                     # 存储接口定义
-│   │   └── impl/
-│   │       ├── sqlite.go                # SQLite 结构化存储
-│   │       ├── qdrant.go               # Qdrant 向量存储
-│   │       ├── neo4j.go                # Neo4j 图存储
-│   │       └── openai_embedding.go     # OpenAI Embedding 服务
-│   ├── rag/
-│   │   ├── ingestion/
-│   │   │   ├── pipeline.go             # 摄入流水线：Parse→Chunk→Embed→Store
-│   │   │   └── parser/native.go        # 多格式文档解析器（16 种格式）
-│   │   └── advanced_features/
-│   │       └── recall.go               # MQE · HyDE · RRF 并行检索
-│   └── retrieval/
-│       ├── bm25.go                      # BM25 评分器 + 倒排索引
-│       └── tokenizer.go                 # 中英文分词器（gse 封装）
-├── tools/
-│   ├── tool.go                          # Tool 接口 & OpenAI Schema 转换
-│   ├── registry.go                      # 工具注册器
-│   ├── executor.go                      # 工具执行器
-│   ├── chain.go                         # 工具链编排器
-│   └── builtins/
-│       ├── rag_tool.go                  # RAG 文档知识库工具
-│       ├── memory_tool.go              # 跨会话记忆工具
-│       └── web_search_tool.go          # 网络搜索工具
-├── mcp/                                 # MCP 协议（规划中）
-├── knowledge_base/                      # 测试用示例文档
-├── data/                                # 运行时数据（SQLite .db）
-├── test/main/main.go                    # 示例入口
-├── app-config.yaml                      # 配置文件
-├── go.mod
-└── README.md
-```
-
----
-
-## License
-
-MIT
+| 类别 | 要点 |
+|:-----|:-----|
+| 🔐 Session 隔离 | MemoryTool 内部 `map[string]*Manager`，ReActAgent 注入 `_session_id` 自动路由 |
+| 📏 Token 估算 | CJK 字符 ≈ 2 tokens/字，非 CJK ≈ 0.25 tokens/字 (`ctx/gssc/EstimateTokens`) |
+| 🔒 并发安全 | WorkingMemory: `RWMutex` + `atomic.Bool` CAS 压缩锁；Tool Chain 并行组: `WaitGroup` |
+| 🛡 输入校验 | SQLite 表名/列名正则校验防注入；Tool 参数类型校验 + 默认值填充 + 非声明参数剔除 |
+| 💾 内存保护 | BaseAgent 消息历史超过 1024 条截断保留后 512 条 |
+| 🕐 时区统一 | 全局使用 `core.Now()` (Asia/Shanghai)，`init()` 中 fallback 为 `CST (UTC+8)` |
