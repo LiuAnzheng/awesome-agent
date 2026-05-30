@@ -1,7 +1,7 @@
 package ctx
 
 import (
-	"memoria/core"
+	"github.com/LiuAnzheng/memoria/core"
 	"time"
 )
 

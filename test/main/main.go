@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
+	"github.com/LiuAnzheng/memoria/agents"
+	"github.com/LiuAnzheng/memoria/core"
+	"github.com/LiuAnzheng/memoria/memory/rag/ingestion/chunker"
+	"github.com/LiuAnzheng/memoria/memory/types"
+	"github.com/LiuAnzheng/memoria/tools"
+	"github.com/LiuAnzheng/memoria/tools/builtins"
 	"log/slog"
-	"memoria/agents"
-	"memoria/core"
-	"memoria/memory/rag/ingestion/chunker"
-	"memoria/memory/types"
-	"memoria/tools"
-	"memoria/tools/builtins"
 )
 
 var sessionID string = "1b4db7eb-4057-5ddf-91e0-36dec72071f5"

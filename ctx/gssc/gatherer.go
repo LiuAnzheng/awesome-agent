@@ -1,10 +1,10 @@
 package gssc
 
 import (
+	"github.com/LiuAnzheng/memoria/core"
+	"github.com/LiuAnzheng/memoria/ctx"
+	"github.com/LiuAnzheng/memoria/tools/builtins"
 	"log/slog"
-	"memoria/core"
-	"memoria/ctx"
-	"memoria/tools/builtins"
 	"strconv"
 	"time"
 )

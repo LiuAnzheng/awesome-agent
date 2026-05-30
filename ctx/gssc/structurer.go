@@ -1,7 +1,7 @@
 package gssc
 
 import (
-	"memoria/ctx"
+	"github.com/LiuAnzheng/memoria/ctx"
 	"strings"
 )
 

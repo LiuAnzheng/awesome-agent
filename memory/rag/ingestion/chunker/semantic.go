@@ -3,9 +3,9 @@ package chunker
 import (
 	"context"
 	"errors"
+	"github.com/LiuAnzheng/memoria/memory/store"
 	"log/slog"
 	"math"
-	"memoria/memory/store"
 	"strings"
 )
 

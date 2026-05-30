@@ -1,8 +1,8 @@
 package types
 
 import (
-	"memoria/core"
-	"memoria/memory/retrieval"
+	"github.com/LiuAnzheng/memoria/core"
+	"github.com/LiuAnzheng/memoria/memory/retrieval"
 	"strconv"
 	"sync"
 	"sync/atomic"

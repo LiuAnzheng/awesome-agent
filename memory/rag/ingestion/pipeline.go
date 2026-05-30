@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"memoria/core"
-	"memoria/memory/rag/ingestion/chunker"
-	"memoria/memory/rag/ingestion/parser"
-	"memoria/memory/store"
-	"memoria/memory/store/impl"
+	"github.com/LiuAnzheng/memoria/core"
+	"github.com/LiuAnzheng/memoria/memory/rag/ingestion/chunker"
+	"github.com/LiuAnzheng/memoria/memory/rag/ingestion/parser"
+	"github.com/LiuAnzheng/memoria/memory/store"
+	"github.com/LiuAnzheng/memoria/memory/store/impl"
 
 	"github.com/google/uuid"
 )

@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"memoria/memory/store"
+	"github.com/LiuAnzheng/memoria/memory/store"
 	"os"
 	"path/filepath"
 	"strings"

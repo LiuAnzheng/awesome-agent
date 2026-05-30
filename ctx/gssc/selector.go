@@ -1,11 +1,11 @@
 package gssc
 
 import (
+	"github.com/LiuAnzheng/memoria/core"
+	"github.com/LiuAnzheng/memoria/ctx"
+	"github.com/LiuAnzheng/memoria/memory/retrieval"
 	"log/slog"
 	"math"
-	"memoria/core"
-	"memoria/ctx"
-	"memoria/memory/retrieval"
 	"sort"
 	"time"
 )

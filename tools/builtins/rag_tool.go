@@ -4,18 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/LiuAnzheng/memoria/memory/rag/advanced_features"
+	"github.com/LiuAnzheng/memoria/memory/rag/ingestion/chunker"
 	"io"
 	"log/slog"
-	"memoria/memory/rag/advanced_features"
-	"memoria/memory/rag/ingestion/chunker"
 	"os"
 	"strings"
 	"time"
 
-	"memoria/core"
-	"memoria/memory/rag/ingestion"
-	"memoria/memory/store"
-	"memoria/tools"
+	"github.com/LiuAnzheng/memoria/core"
+	"github.com/LiuAnzheng/memoria/memory/rag/ingestion"
+	"github.com/LiuAnzheng/memoria/memory/store"
+	"github.com/LiuAnzheng/memoria/tools"
 )
 
 var ragDescription = `Search a pre-loaded document knowledge base. Documents are already ingested — use this tool to find and cite relevant information.

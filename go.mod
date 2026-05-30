@@ -1,4 +1,4 @@
-module memoria
+module github.com/LiuAnzheng/memoria
 
 go 1.25.0
 

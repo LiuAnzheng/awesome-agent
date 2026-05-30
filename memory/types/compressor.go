@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"memoria/core"
+	"github.com/LiuAnzheng/memoria/core"
 	"sort"
 	"strings"
 )

@@ -45,11 +45,11 @@ package main
 
 import (
     "context"
-    "memoria/agents"
-    "memoria/core"
-    "memoria/memory/types"
-    "memoria/tools"
-    "memoria/tools/builtins"
+    "github.com/LiuAnzheng/memoria/agents"
+    "github.com/LiuAnzheng/memoria/core"
+    "github.com/LiuAnzheng/memoria/memory/types"
+    "github.com/LiuAnzheng/memoria/tools"
+    "github.com/LiuAnzheng/memoria/tools/builtins"
 )
 
 func main() {

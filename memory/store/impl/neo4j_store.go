@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"memoria/memory/store"
+	"github.com/LiuAnzheng/memoria/memory/store"
 )
 
 type Neo4jStore struct {
