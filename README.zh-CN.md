@@ -25,16 +25,23 @@
 
 ## ⚡ 快速开始
 
+### 安装
+
 ```bash
-# 1. 克隆项目并安装依赖
-git clone https://github.com/<your-org>/Memoria && cd Memoria
-go mod download
+go get github.com/LiuAnzheng/memoria
+```
+
+### 运行 Demo
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/LiuAnzheng/memoria.git && cd memoria
 
 # 2. 设置 LLM API Key（兼容 OpenAI 协议）
 export LLM_API_KEY=sk-xxx
 export LLM_BASE_URL=https://api.openai.com
 
-# 3. 运行 Demo
+# 3. 运行
 go run ./test/main/
 ```
 

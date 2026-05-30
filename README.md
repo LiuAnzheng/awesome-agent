@@ -25,16 +25,23 @@
 
 ## ⚡ Quick Start
 
+### Install
+
 ```bash
-# 1. Clone and install
-git clone https://github.com/<your-org>/Memoria && cd Memoria
-go mod download
+go get github.com/LiuAnzheng/memoria
+```
+
+### Run the Demo
+
+```bash
+# 1. Clone
+git clone https://github.com/LiuAnzheng/memoria.git && cd memoria
 
 # 2. Set your LLM API key (OpenAI-compatible)
 export LLM_API_KEY=sk-xxx
 export LLM_BASE_URL=https://api.openai.com
 
-# 3. Run the demo
+# 3. Run
 go run ./test/main/
 ```
 
