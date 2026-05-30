@@ -177,9 +177,6 @@ func validateContextConfig(c ContextConfig, l LLMConfig) error {
 	if c.MaxTokens <= 0 {
 		return fmt.Errorf("context.max_tokens must be positive, got: %v", c.MaxTokens)
 	}
-	if c.MaxTokens > l.MaxTokens {
-		return fmt.Errorf("context.max_tokens (%v) cannot exceed llm.max_tokens (%v)", c.MaxTokens, l.MaxTokens)
-	}
 	if c.ReserveRatio < 0.0 || c.ReserveRatio > 1.0 {
 		return fmt.Errorf("reserve_ratio must be in [0, 1], got: %v", c.ReserveRatio)
 	}

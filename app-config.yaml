@@ -4,7 +4,7 @@ awesome-agent:
     provider: "dashscope"
     api_key: ${LLM_API_KEY}
     base_url: ${LLM_BASE_URL}
-    max_tokens: 102400
+    max_tokens: 65535
     temperature: 0.7
     top_p: 1.0
   rag:
