@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"awesome-agent/core"
-	"awesome-agent/memory/rag/ingestion/chunker"
-	"awesome-agent/memory/rag/ingestion/parser"
-	"awesome-agent/memory/store"
-	"awesome-agent/memory/store/impl"
+	"memoria/core"
+	"memoria/memory/rag/ingestion/chunker"
+	"memoria/memory/rag/ingestion/parser"
+	"memoria/memory/store"
+	"memoria/memory/store/impl"
 
 	"github.com/google/uuid"
 )

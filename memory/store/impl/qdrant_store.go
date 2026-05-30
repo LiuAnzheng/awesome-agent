@@ -1,13 +1,13 @@
 package impl
 
 import (
-	"awesome-agent/memory/store"
 	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"io"
+	"memoria/memory/store"
 	"net/http"
 	"time"
 )
@@ -218,7 +218,7 @@ func (q *QdrantStore) Close() error {
 
 // qdrantNamespace 确保本项目的 UUID v5 不与其他系统冲突
 var qdrantNamespace = func() []byte {
-	h := sha1.Sum([]byte("awesome-agent.qdrant.points"))
+	h := sha1.Sum([]byte("memoria.qdrant.points"))
 	return h[:16]
 }()
 

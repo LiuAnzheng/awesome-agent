@@ -1,15 +1,15 @@
 package agents
 
 import (
-	"awesome-agent/core"
-	"awesome-agent/ctx/gssc"
-	"awesome-agent/tools"
-	"awesome-agent/tools/builtins"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"memoria/core"
+	"memoria/ctx/gssc"
+	"memoria/tools"
+	"memoria/tools/builtins"
 )
 
 type ReActAgent struct {

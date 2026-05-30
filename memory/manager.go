@@ -1,14 +1,14 @@
 package memory
 
 import (
-	"awesome-agent/core"
-	"awesome-agent/memory/retrieval"
-	"awesome-agent/memory/store"
-	"awesome-agent/memory/types"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"memoria/core"
+	"memoria/memory/retrieval"
+	"memoria/memory/store"
+	"memoria/memory/types"
 	"strconv"
 	"time"
 )

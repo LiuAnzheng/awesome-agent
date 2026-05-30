@@ -1,10 +1,10 @@
 package types
 
 import (
-	"awesome-agent/core"
 	"context"
 	"encoding/json"
 	"fmt"
+	"memoria/core"
 	"sort"
 	"strings"
 )

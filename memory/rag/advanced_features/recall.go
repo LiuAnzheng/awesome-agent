@@ -1,12 +1,12 @@
 package advanced_features
 
 import (
-	"awesome-agent/core"
-	"awesome-agent/memory/store"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"memoria/core"
+	"memoria/memory/store"
 	"sort"
 	"strings"
 	"sync"

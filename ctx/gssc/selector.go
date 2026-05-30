@@ -1,11 +1,11 @@
 package gssc
 
 import (
-	"awesome-agent/core"
-	"awesome-agent/ctx"
-	"awesome-agent/memory/retrieval"
 	"log/slog"
 	"math"
+	"memoria/core"
+	"memoria/ctx"
+	"memoria/memory/retrieval"
 	"sort"
 	"time"
 )

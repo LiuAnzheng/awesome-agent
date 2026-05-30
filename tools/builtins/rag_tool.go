@@ -1,21 +1,21 @@
 package builtins
 
 import (
-	"awesome-agent/memory/rag/advanced_features"
-	"awesome-agent/memory/rag/ingestion/chunker"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
+	"memoria/memory/rag/advanced_features"
+	"memoria/memory/rag/ingestion/chunker"
 	"os"
 	"strings"
 	"time"
 
-	"awesome-agent/core"
-	"awesome-agent/memory/rag/ingestion"
-	"awesome-agent/memory/store"
-	"awesome-agent/tools"
+	"memoria/core"
+	"memoria/memory/rag/ingestion"
+	"memoria/memory/store"
+	"memoria/tools"
 )
 
 var ragDescription = `Search a pre-loaded document knowledge base. Documents are already ingested — use this tool to find and cite relevant information.

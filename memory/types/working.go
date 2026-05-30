@@ -1,8 +1,8 @@
 package types
 
 import (
-	"awesome-agent/core"
-	"awesome-agent/memory/retrieval"
+	"memoria/core"
+	"memoria/memory/retrieval"
 	"strconv"
 	"sync"
 	"sync/atomic"

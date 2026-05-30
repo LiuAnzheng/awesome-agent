@@ -1,11 +1,11 @@
 package impl
 
 import (
-	"awesome-agent/memory/store"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"memoria/memory/store"
 	"os"
 	"path/filepath"
 	"strings"

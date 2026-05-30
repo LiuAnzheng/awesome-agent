@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"awesome-agent/memory/store"
+	"memoria/memory/store"
 )
 
 type Neo4jStore struct {

@@ -123,46 +123,46 @@ func LoadConfig(path string) error {
 	v.SetConfigType("yaml")
 
 	// LLM
-	v.SetDefault("awesome-agent.llm.model_id", AppCfg.LLMConfig.ModelID)
-	v.SetDefault("awesome-agent.llm.provider", AppCfg.LLMConfig.Provider)
-	v.SetDefault("awesome-agent.llm.api_key", AppCfg.LLMConfig.APIKey)
-	v.SetDefault("awesome-agent.llm.base_url", AppCfg.LLMConfig.BaseURL)
-	v.SetDefault("awesome-agent.llm.max_tokens", AppCfg.LLMConfig.MaxTokens)
-	v.SetDefault("awesome-agent.llm.temperature", AppCfg.LLMConfig.Temperature)
-	v.SetDefault("awesome-agent.llm.top_p", AppCfg.LLMConfig.TopP)
-	v.SetDefault("awesome-agent.llm.open_ai_extra_info", AppCfg.LLMConfig.OpenAIExtraInfo)
+	v.SetDefault("memoria.llm.model_id", AppCfg.LLMConfig.ModelID)
+	v.SetDefault("memoria.llm.provider", AppCfg.LLMConfig.Provider)
+	v.SetDefault("memoria.llm.api_key", AppCfg.LLMConfig.APIKey)
+	v.SetDefault("memoria.llm.base_url", AppCfg.LLMConfig.BaseURL)
+	v.SetDefault("memoria.llm.max_tokens", AppCfg.LLMConfig.MaxTokens)
+	v.SetDefault("memoria.llm.temperature", AppCfg.LLMConfig.Temperature)
+	v.SetDefault("memoria.llm.top_p", AppCfg.LLMConfig.TopP)
+	v.SetDefault("memoria.llm.open_ai_extra_info", AppCfg.LLMConfig.OpenAIExtraInfo)
 
 	// Memory
-	v.SetDefault("awesome-agent.memory.structure.driver", AppCfg.Memory.Structured.Driver)
-	v.SetDefault("awesome-agent.memory.structure.options", AppCfg.Memory.Structured.Options)
+	v.SetDefault("memoria.memory.structure.driver", AppCfg.Memory.Structured.Driver)
+	v.SetDefault("memoria.memory.structure.options", AppCfg.Memory.Structured.Options)
 
-	v.SetDefault("awesome-agent.memory.embedding.driver", AppCfg.Memory.Embedding.Driver)
-	v.SetDefault("awesome-agent.memory.embedding.options", AppCfg.Memory.Embedding.Options)
+	v.SetDefault("memoria.memory.embedding.driver", AppCfg.Memory.Embedding.Driver)
+	v.SetDefault("memoria.memory.embedding.options", AppCfg.Memory.Embedding.Options)
 
-	v.SetDefault("awesome-agent.memory.vector_store.driver", AppCfg.Memory.VectorStore.Driver)
-	v.SetDefault("awesome-agent.memory.vector_store.options", AppCfg.Memory.VectorStore.Options)
+	v.SetDefault("memoria.memory.vector_store.driver", AppCfg.Memory.VectorStore.Driver)
+	v.SetDefault("memoria.memory.vector_store.options", AppCfg.Memory.VectorStore.Options)
 
-	v.SetDefault("awesome-agent.memory.graph.driver", AppCfg.Memory.Graph.Driver)
-	v.SetDefault("awesome-agent.memory.graph.options", AppCfg.Memory.Graph.Options)
+	v.SetDefault("memoria.memory.graph.driver", AppCfg.Memory.Graph.Driver)
+	v.SetDefault("memoria.memory.graph.options", AppCfg.Memory.Graph.Options)
 
 	// RAG
-	v.SetDefault("awesome-agent.rag.max_doc_size", AppCfg.RAGConfig.MaxDocSize)
-	v.SetDefault("awesome-agent.rag.collection", AppCfg.RAGConfig.Collection)
+	v.SetDefault("memoria.rag.max_doc_size", AppCfg.RAGConfig.MaxDocSize)
+	v.SetDefault("memoria.rag.collection", AppCfg.RAGConfig.Collection)
 
 	// Context
-	v.SetDefault("awesome-agent.context.max_tokens", AppCfg.ContextConfig.MaxTokens)
-	v.SetDefault("awesome-agent.context.reserve_ratio", AppCfg.ContextConfig.ReserveRatio)
-	v.SetDefault("awesome-agent.context.min_relevance", AppCfg.ContextConfig.MinRelevance)
-	v.SetDefault("awesome-agent.context.enable_compression", AppCfg.ContextConfig.EnableCompression)
-	v.SetDefault("awesome-agent.context.recency_weight", AppCfg.ContextConfig.RecencyWeight)
-	v.SetDefault("awesome-agent.context.relevance_weight", AppCfg.ContextConfig.RelevanceWeight)
+	v.SetDefault("memoria.context.max_tokens", AppCfg.ContextConfig.MaxTokens)
+	v.SetDefault("memoria.context.reserve_ratio", AppCfg.ContextConfig.ReserveRatio)
+	v.SetDefault("memoria.context.min_relevance", AppCfg.ContextConfig.MinRelevance)
+	v.SetDefault("memoria.context.enable_compression", AppCfg.ContextConfig.EnableCompression)
+	v.SetDefault("memoria.context.recency_weight", AppCfg.ContextConfig.RecencyWeight)
+	v.SetDefault("memoria.context.relevance_weight", AppCfg.ContextConfig.RelevanceWeight)
 
 	err = v.ReadConfig(strings.NewReader(expanded))
 	if err != nil {
 		return err
 	}
 
-	sub := v.Sub("awesome-agent")
+	sub := v.Sub("memoria")
 	if sub == nil {
 		return fmt.Errorf("config not found in %s", path)
 	}

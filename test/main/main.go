@@ -1,14 +1,14 @@
 package main
 
 import (
-	"awesome-agent/agents"
-	"awesome-agent/core"
-	"awesome-agent/memory/rag/ingestion/chunker"
-	"awesome-agent/memory/types"
-	"awesome-agent/tools"
-	"awesome-agent/tools/builtins"
 	"context"
 	"log/slog"
+	"memoria/agents"
+	"memoria/core"
+	"memoria/memory/rag/ingestion/chunker"
+	"memoria/memory/types"
+	"memoria/tools"
+	"memoria/tools/builtins"
 )
 
 var sessionID string = "1b4db7eb-4057-5ddf-91e0-36dec72071f5"

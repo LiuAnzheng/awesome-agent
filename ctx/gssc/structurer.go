@@ -1,7 +1,7 @@
 package gssc
 
 import (
-	"awesome-agent/ctx"
+	"memoria/ctx"
 	"strings"
 )
 

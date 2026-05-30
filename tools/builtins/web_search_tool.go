@@ -1,12 +1,12 @@
 package builtins
 
 import (
-	"awesome-agent/tools"
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"memoria/tools"
 	"net/http"
 	"os"
 	"strings"

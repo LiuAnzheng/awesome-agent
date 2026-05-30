@@ -1,4 +1,4 @@
-module awesome-agent
+module memoria
 
 go 1.25.0
 

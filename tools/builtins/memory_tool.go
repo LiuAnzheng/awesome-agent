@@ -1,14 +1,14 @@
 package builtins
 
 import (
-	"awesome-agent/core"
-	"awesome-agent/memory"
-	"awesome-agent/memory/store"
-	"awesome-agent/memory/store/impl"
-	"awesome-agent/memory/types"
-	"awesome-agent/tools"
 	"context"
 	"fmt"
+	"memoria/core"
+	"memoria/memory"
+	"memoria/memory/store"
+	"memoria/memory/store/impl"
+	"memoria/memory/types"
+	"memoria/tools"
 	"slices"
 	"sort"
 	"sync"

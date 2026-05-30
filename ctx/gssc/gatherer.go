@@ -1,10 +1,10 @@
 package gssc
 
 import (
-	"awesome-agent/core"
-	"awesome-agent/ctx"
-	"awesome-agent/tools/builtins"
 	"log/slog"
+	"memoria/core"
+	"memoria/ctx"
+	"memoria/tools/builtins"
 	"strconv"
 	"time"
 )

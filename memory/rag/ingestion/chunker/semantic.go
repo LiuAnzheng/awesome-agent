@@ -1,11 +1,11 @@
 package chunker
 
 import (
-	"awesome-agent/memory/store"
 	"context"
 	"errors"
 	"log/slog"
 	"math"
+	"memoria/memory/store"
 	"strings"
 )
 

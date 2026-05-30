@@ -1,7 +1,7 @@
 package ctx
 
 import (
-	"awesome-agent/core"
+	"memoria/core"
 	"time"
 )
 
