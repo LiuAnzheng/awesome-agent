@@ -3,7 +3,11 @@
 </p>
 
 <p align="center">
-  <h1 align="center">🤖 Memoria</h1>
+  <img src="logo.jfif" alt="Memoria Logo" width="160">
+</p>
+
+<p align="center">
+  <h1 align="center">Memoria</h1>
   <p align="center">
     <strong>Go 语言 AI Agent 框架 —— 多层记忆 · RAG 检索 · 上下文感知推理</strong>
   </p>

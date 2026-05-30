@@ -3,7 +3,11 @@
 </p>
 
 <p align="center">
-  <h1 align="center">🤖 Memoria</h1>
+  <img src="logo.jfif" alt="Memoria Logo" width="160">
+</p>
+
+<p align="center">
+  <h1 align="center">Memoria</h1>
   <p align="center">
     <strong>A Go-native AI Agent framework with multi-tier memory, RAG, and context-aware reasoning</strong>
   </p>
