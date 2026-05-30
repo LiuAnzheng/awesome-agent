@@ -111,6 +111,8 @@ func (m *MemoryTool) resolveManager(params map[string]interface{}) (*memory.Mana
 }
 
 func (m *MemoryTool) HasSessionID(sessionID string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	_, ok := m.managers[sessionID]
 	return ok
 }
