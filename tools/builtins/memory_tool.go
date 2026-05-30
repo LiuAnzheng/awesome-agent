@@ -42,7 +42,7 @@ type MemoryTool struct {
 }
 
 func (m *MemoryTool) Name() string {
-	return "memory"
+	return "memory_tool"
 }
 
 func (m *MemoryTool) Description() string {

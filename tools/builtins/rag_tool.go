@@ -137,7 +137,7 @@ func NewRAGTool(
 	return rt, nil
 }
 
-func (r *RAGTool) Name() string        { return "RAG" }
+func (r *RAGTool) Name() string        { return "rag_tool" }
 func (r *RAGTool) Description() string { return ragDescription }
 
 func (r *RAGTool) Parameters() []tools.ToolParameter {

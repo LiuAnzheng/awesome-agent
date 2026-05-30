@@ -20,7 +20,7 @@ type WebSearchTool struct {
 }
 
 func (w *WebSearchTool) Name() string {
-	return "WebSearch"
+	return "web_search_tool"
 }
 
 func (w *WebSearchTool) Description() string {
