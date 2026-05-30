@@ -99,6 +99,7 @@ func (ra *ReActAgent) buildMessages(userQuery string) []core.Message {
 	)
 	messages := make([]core.Message, 0)
 	messages = append(messages, core.Message{Role: "system", Content: cbContent})
+	messages = append(messages, core.Message{Role: "user", Content: userQuery})
 	return messages
 }
 
@@ -148,7 +149,7 @@ func NewReActAgent(name string,
 	toolRegistry *tools.ToolRegistry,
 	maxSteps int64,
 	systemPrompt string,
-	sessionID string) *ReActAgent {
+	sessionID string) (*ReActAgent, error) {
 
 	if systemPrompt == "" {
 		systemPrompt = DefaultReActSystemPrompt
@@ -173,10 +174,10 @@ func NewReActAgent(name string,
 	var mt *builtins.MemoryTool
 	var rt *builtins.RAGTool
 	if toolRegistry != nil {
-		if t, ok := toolRegistry.Tool("memory"); ok {
+		if t, ok := toolRegistry.Tool("memory_tool"); ok {
 			mt, _ = t.(*builtins.MemoryTool)
 		}
-		if t, ok := toolRegistry.Tool("rag"); ok {
+		if t, ok := toolRegistry.Tool("rag_tool"); ok {
 			rt, _ = t.(*builtins.RAGTool)
 		}
 	}
@@ -187,5 +188,19 @@ func NewReActAgent(name string,
 		ra.SessionID,
 	)
 
-	return ra
+	// 初始化memory tool session
+	if toolRegistry != nil {
+		if t, ok := toolRegistry.Tool("memory_tool"); ok {
+			mt, _ = t.(*builtins.MemoryTool)
+			if !mt.HasSessionID(ra.SessionID) {
+				err := mt.AddSession(ra.SessionID)
+				slog.Info("react agent set default memory session", "sessionID", ra.SessionID)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	return ra, nil
 }

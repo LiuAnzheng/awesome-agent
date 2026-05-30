@@ -110,6 +110,11 @@ func (m *MemoryTool) resolveManager(params map[string]interface{}) (*memory.Mana
 	return m.GetManager(sessionID)
 }
 
+func (m *MemoryTool) HasSessionID(sessionID string) bool {
+	_, ok := m.managers[sessionID]
+	return ok
+}
+
 func (m *MemoryTool) getDefaultSessionID() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
