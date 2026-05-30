@@ -20,14 +20,26 @@ import (
 
 var ragDescription = `Search a pre-loaded document knowledge base. Documents are already ingested — use this tool to find and cite relevant information.
 
-== Actions & Triggers ==
+=== HOW SEARCH WORKS ===
 
-[search] — Vector search over document chunks.
+  Search automatically uses multi-query expansion (MQE) and hypothetical
+  document embedding (HyDE) behind the scenes. This means:
+  - A single query will be expanded into 3 semantic variants + 1 hypothetical
+    answer document, then searched in parallel, then fused via RRF.
+  - Vague queries work better than you'd expect — just write naturally.
+  - Empty results after this multi-pass pipeline means the info is genuinely
+    not in the knowledge base — don't waste turns retrying.
+
+=== Actions & Triggers ===
+
+[search] — Vector search over document chunks (MQE + HyDE enhanced).
   Triggers: user asks about ANY topic that might be covered by documents.
     "what is X", "how does Y work", "find info about Z", "look up W"
-  Params: query* (natural language), top_k? (default 5)
+  Params: query* (natural language, be specific but not verbose),
+          top_k? (chunks to return, default 5, use 10-20 for broad topics)
   Returns: list of {chunk_id, doc_id, doc_name, content, score, chunk_index}
-  On empty results: rephrase query with different keywords.
+  On empty results: try ONE alternative phrasing (synonyms, broader terms,
+    translate Chinese<->English). If still empty, tell the user.
 
 [list] — List documents in knowledge base.
   Triggers: "what documents are available", "show me the knowledge base",
@@ -38,7 +50,7 @@ var ragDescription = `Search a pre-loaded document knowledge base. Documents are
 [delete] — Remove a document and all its chunks.
   Triggers: "delete/remove that document", "get rid of X doc"
   Params: doc_id* (get from [list] or [status] first)
-  ⚠ You MUST confirm the target document via [list] or [status] before deleting.
+  !! You MUST confirm the target document via [list] or [status] before deleting.
 
 [status] — Get details for a specific document.
   Triggers: "show me details of doc X", "what's in document Y"
@@ -47,7 +59,7 @@ var ragDescription = `Search a pre-loaded document knowledge base. Documents are
 
 * = required, ? = optional
 
-== Citation Format ==
+=== Citation Format ===
 After [search], cite every claim using the returned doc_name and chunk_index, like this:
   "The default timeout is 30 seconds [1]."
   At the end of your answer, list all references:
@@ -58,14 +70,24 @@ After [search], cite every claim using the returned doc_name and chunk_index, li
 
 Always include: doc_name, chunk_index, and score for each reference you cite.
 
-== Workflow Rules ==
+=== Workflow Rules ===
 1. Factual question → [search] FIRST. Never answer from memory alone.
 2. Cite sources: every fact from search results MUST have a [N] tag linking to the reference list.
-3. Empty search results → tell the user, suggest rephrasing. Do NOT guess.
+3. Empty search results → try ONE rephrase (synonym, broader term, language switch). If still empty, tell the user clearly. Do NOT guess content.
 4. Before [delete] → [list] to find doc_id → [status] to confirm.
 5. When user asks what documents exist → [list]. For one doc's details → [status].
+6. High-scoring chunks (>=0.85) are near-exact matches — prefer them.
+7. Low-scoring chunks (<=0.60) are tangentially related — use with caution.
 
-== Few-Shot ==
+=== Search Retry Strategies ===
+If initial search returns nothing or irrelevant results, try ONE of:
+  - Use synonyms: "auth" -> "authentication", "config" -> "configuration"
+  - Go broader: "Redis cluster timeout config" -> "Redis timeout"
+  - Switch language: "认证" -> "authentication", "API timeout" -> "API超时"
+  - Use key nouns only: "What is the default timeout?" -> "timeout default"
+Do NOT try more than one retry — if both fail, the info isn't there.
+
+=== Few-Shot ===
 User: "What's the API timeout setting?"
   → search(query="API timeout configuration")
   → "The API timeout is set to 30 seconds [1]. Tokens expire after 3600 seconds [1]."
@@ -75,7 +97,10 @@ User: "What docs do we have?" → list()
 
 User: "Delete the outdated PRD"
   → list() → status(doc_id="...") to confirm → delete(doc_id="...")
-`
+
+User: "数据库连接池怎么配？" (no results for first search)
+  → search(query="database connection pool") (retry in English)
+  → If still empty: "知识库中未找到数据库连接池配置的相关文档。"`
 
 type RAGTool struct {
 	pipeline *ingestion.Pipeline
@@ -116,13 +141,12 @@ func NewRAGTool(
 	}
 	rt.pipeline = pipeline
 
-	// 如果开启高级特性
 	if enableMQE || enableHyDE {
 		llm, err := core.NewLLM(core.LLMConfig{
 			ModelID:         config.LLMConfig.ModelID,
 			BaseURL:         config.LLMConfig.BaseURL,
 			MaxTokens:       config.LLMConfig.MaxTokens,
-			Temperature:     0.3, // 扩展查询生成用低温度
+			Temperature:     0.3,
 			TopP:            config.LLMConfig.TopP,
 			OpenAIExtraInfo: config.LLMConfig.OpenAIExtraInfo,
 			Provider:        config.LLMConfig.Provider,
@@ -178,7 +202,6 @@ func (r *RAGTool) Run(params map[string]interface{}) (string, error) {
 	}
 }
 
-// Ingest 开发者API
 func (r *RAGTool) Ingest(ctx context.Context, source, name string) error {
 	reader, filename, closeFn, err := openSource(source)
 	if err != nil {
@@ -316,7 +339,6 @@ func (r *RAGTool) fetchChunks(ctx context.Context, ids []string) (map[string]chu
 		docIDs[docID] = true
 	}
 
-	// 补全 doc_name
 	idList := make([]string, 0, len(docIDs))
 	for id := range docIDs {
 		idList = append(idList, id)
@@ -406,12 +428,10 @@ func (r *RAGTool) runDelete(params map[string]interface{}) (string, error) {
 		chunkIDs = append(chunkIDs, getStr(rec, "id"))
 	}
 
-	// 级联删除（document → chunks）
 	if err := r.pipeline.DocStore.Delete(ctx, "rag_documents", docID); err != nil {
 		return "", fmt.Errorf("delete document: %w", err)
 	}
 
-	// 清 Qdrant
 	if len(chunkIDs) > 0 {
 		_ = r.pipeline.VectorStore.Delete(ctx, r.collection(), chunkIDs)
 	}

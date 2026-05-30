@@ -14,17 +14,106 @@ import (
 	"sync"
 )
 
-var memoryToolDescription = `CRITICAL: You have NO persistent memory. Every turn starts from zero. Without this tool, all past context is LOST.
+var memoryToolDescription = `═══ CRITICAL — READ THIS FIRST ═══
 
-ALWAYS use this tool every turn:
-1. search(query="keywords") BEFORE answering — recall what you already know
-2. add(content="what you learned", importance=0.5~0.9) AFTER answering — save new knowledge
+You have NO persistent memory. Every turn starts BLANK. This tool is your ONLY way to persist knowledge across turns. Without it, everything you learn is LOST FOREVER.
 
-Skipping add = forgetting permanently. Skipping search = ignoring existing knowledge.
+═══ MANDATORY WORKFLOW (EVERY turn, no exceptions) ═══
 
-Actions:
-- add: content* (what to remember), importance (0.0~1.0, default 0.5, 0.8+ for critical facts)
-- search: query* (search text), limit (max results, default 10)`
+  1. search(query="...") BEFORE answering —— recall what you already know
+  2. add(content="...", importance=...) AFTER answering —— save what you learned
+
+  Skipping add  = permanent amnesia.
+  Skipping search = answering blind.
+
+═══ WHAT MUST BE REMEMBERED ═══
+
+You MUST record the following categories of information. Nothing is too small — the system will compress and organize it automatically.
+
+  ┌─────────────────────┬──────────────────────────────────────────────────┐
+  │ Category            │ Examples (add EVERY time you encounter these)    │
+  ├─────────────────────┼──────────────────────────────────────────────────┤
+  │ User Identity       │ name, role, team, department, seniority, contact │
+  │ User Preferences    │ "prefers short answers", "uses Python", "hates   │
+  │                     │  verbose error messages", timezone, language      │
+  │ Key Decisions       │ "decided to use PostgreSQL over MySQL",          │
+  │                     │  "chose monorepo strategy", "picked port 8080"    │
+  │ Facts & Findings    │ API timeout values, config defaults, known bugs,  │
+  │                     │  system limits, dependency versions               │
+  │ Task Progress       │ what was done, what remains, what was attempted   │
+  │                     │  and failed, current milestone                    │
+  │ Action Results      │ tool outputs, error messages, search findings,    │
+  │                     │  confirmed hypotheses                             │
+  │ Reasoning Traces    │ WHY you made a choice, what alternatives you      │
+  │                     │  considered, what assumptions you made            │
+  │ User Feedback       │ corrections, "that's wrong", "good answer",       │
+  │                     │  style complaints, accuracy judgments             │
+  │ Conversation Context│ the user's original goal, topic shifts,           │
+  │                     │  unresolved questions                             │
+  └─────────────────────┴──────────────────────────────────────────────────┘
+
+═══ IMPORTANCE GUIDE ═══
+
+  Choose importance based on how critical the information is for FUTURE turns:
+
+  0.9 - 1.0  ║ CRITICAL ║ User identity, decisions that change everything,
+             ║          ║ irreversible actions, core preferences.
+  0.7 - 0.8  ║ HIGH     ║ Key facts, findings, task progress, error messages,
+             ║          ║ user corrections and feedback.
+  0.5 - 0.6  ║ MEDIUM   ║ General observations, context details, intermediate
+             ║          ║ reasoning steps, exploration results.
+  0.3 - 0.4  ║ LOW      ║ Minor details, failed attempts that proved
+             ║          ║ uninformative, background context.
+  0.1 - 0.2  ║ TRIVIAL  ║ Barely relevant — use rarely.
+
+  ⚠ If unsure, use 0.5. Err on the HIGH side for anything that might matter later.
+
+═══ search GUIDANCE ═══
+
+  - Searches across ALL memory types (working + episodic + semantic).
+  - Use specific keywords: "user role Python" not "what does the user do".
+  - Start with 2-3 core keywords; broaden if no results.
+  - Always search even if you "think" you know — you might be wrong.
+  - If search returns nothing, note it and move on — don't retry with minor variations.
+
+═══ add GUIDANCE ═══
+
+  - Write content as self-contained facts, NOT conversational replies.
+    ✅ GOOD: "User Li Wei is a senior engineer in the Tech R&D Center, team lead for the API Gateway project."
+    ❌ BAD:  "The user told me that he works as a senior engineer."
+  - One piece of information per add() call for precise retrieval.
+  - Include concrete values: version numbers, file paths, error codes, config keys.
+  - After a multi-step task, add a summary with the full outcome chain.
+  - If you learned 5 things, call add() 5 times — don't cram them into one call.
+
+═══ FEW-SHOT EXAMPLES ═══
+
+  User: "我是技术研发中心的李伟，负责API网关项目"
+  → add(content="User Li Wei (李伟) works in Tech R&D Center, leads API Gateway project", importance=0.95)
+  → search(query="李伟 API网关")
+
+  User: "我不喜欢太啰嗦的回答，代码示例用Python"
+  → add(content="User prefers concise answers, code examples in Python", importance=0.85)
+
+  User: "把那个超时的bug修一下，之前排查到是连接池满了"
+  → search(query="timeout bug connection pool fix")
+  → add(content="Bug: timeout caused by connection pool exhaustion, currently investigating fix", importance=0.8)
+
+  User: "上次你说的Redis配置要改成cluster模式"
+  → search(query="Redis config cluster mode")
+  → add(content="Decision: Redis should be configured as cluster mode (per user instruction)", importance=0.9)
+
+═══ HOW MEMORY WORKS (so you understand the lifecycle) ═══
+
+  Your add() calls enter Working Memory (in-memory, BM25 keyword search).
+  When Working Memory fills up (~90%), the system auto-compresses the oldest
+  items into Episodic Memory (SQLite + vector search) — a concise narrative
+  summary is generated. Episodic memories can later consolidate into
+  Semantic Memory (Neo4j knowledge graph) for cross-session reasoning.
+
+  → High-importance items are more likely to survive compression.
+  → Self-contained, fact-dense content compresses better than chatty notes.
+  → What you write NOW determines what you can recall LATER.`
 
 type MemoryTool struct {
 	types            []types.MemoryType
