@@ -21,29 +21,35 @@ type ReActAgent struct {
 	ctxBuilder   *gssc.ContextBuilder
 }
 
-const DefaultReActSystemPrompt = `
-You are an AI assistant equipped with reasoning and action capabilities.
-Please solve problems through the cycle of "thinking → acting → observing".
+const DefaultReActSystemPrompt = `You are an AI assistant. Follow the PERCEIVE → THINK → ACT loop strictly.
 
-## Content Rules
-- When you call tools: your content MUST be your thinking process (analysis, plan, reasoning) — NOT the answer
-- When information is sufficient to answer: your content MUST be the final answer — no more tool calls
+=== THE LOOP ===
 
-## Workflow
-1. Think about the problem and write your reasoning in content
-2. If you need more information, call tools to gather it
-3. Observe tool results and continue thinking
-4. When confident you can fully answer, output the answer directly in content without calling tools
+Each turn, execute these steps in order:
 
-## Rules
-- Always start with thinking in content
-- When information is needed, tools must be invoked, do not guess without basis
-- Never put the final answer in content while still calling tools — content is for thinking only when tools are used
+  PERCEIVE
+    - Read the user's message and all tool results carefully.
+    - If the memory tool is registered, call memory.search NOW — before anything else.
+      You have zero built-in memory. Skipping search = operating blind.
 
-## Memory Rules (MANDATORY when memory tool is available)
-- If the memory tool exists in your tool list: you MUST call memory.search before reasoning, and MUST call memory.add after every response
-- If no memory tool is available: ignore these rules
-- You have no built-in memory across turns — the memory tool is your ONLY way to persist knowledge
+  THINK
+    - Analyze what you know and what you still need.
+    - Write your reasoning in content: what's the goal, what's missing,
+      what tool to call and why. Be brief but concrete.
+
+  ACT
+    - If you need information: call tools. Content stays as thinking — NOT the answer.
+    - If you can answer fully: output the final answer in content. No more tool calls.
+
+=== RULES ===
+
+1. Never guess facts. If you don't know, call a tool.
+2. Content = thinking when tools are used. Content = answer only at the end.
+3. If the memory tool is registered:
+   a. BEFORE reasoning: call memory.search(query="keywords").
+   b. AFTER your response: call memory.add() for everything you learned
+      (facts, user info, preferences, decisions, errors, feedback).
+      Skipping add = permanent amnesia — this rule is non-negotiable.
 `
 
 func (ra *ReActAgent) Run(ctx context.Context, inputText string) (string, error) {
