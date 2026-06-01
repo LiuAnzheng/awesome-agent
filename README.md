@@ -38,8 +38,8 @@ go get github.com/LiuAnzheng/memoria
 git clone https://github.com/LiuAnzheng/memoria.git && cd memoria
 
 # 2. Set your LLM API key (OpenAI-compatible)
-export LLM_API_KEY=sk-xxx
-export LLM_BASE_URL=https://api.openai.com
+set MODEL_API_KEY=sk-xxx           # Windows
+set MODEL_BASE_URL=https://api.openai.com
 
 # 3. Run
 go run ./test/main/
@@ -60,20 +60,19 @@ import (
 )
 
 func main() {
-    // Only LLM config is required — everything else uses in-memory defaults
-    core.AppCfg.LLMConfig.APIKey  = "sk-xxx"
-    core.AppCfg.LLMConfig.BaseURL = "https://api.openai.com"
-
-    llm, _ := core.NewLLM(core.AppCfg.LLMConfig)
+    // LLM config with env fallback — set MODEL_API_KEY + MODEL_BASE_URL
+    llm, _ := core.NewLLM(core.LLMConfig{ModelID: "gpt-5.4"}.ApplyEnv())
     registry := tools.NewToolRegistry()
 
-    // Register memory with Working type only (in-memory, zero deps)
-    mt, _ := builtins.NewMemoryTool(core.AppCfg,
-        []types.MemoryType{types.Working}, // in-memory only — no Qdrant needed
-        nil, nil, nil, nil)
+    // Working memory only — in-memory, zero deps
+    mt, _ := builtins.NewMemoryTool(
+        core.MemoryConfig{}, nil,                     // nil LLM = no compression
+        []types.MemoryType{types.Working},
+        nil, nil, nil, nil,
+    )
     registry.Register(mt)
 
-    agent, _ := agents.NewReActAgent("demo", llm, core.AppCfg, registry, 64, "", "session-1")
+    agent, _ := agents.NewReActAgent("demo", llm, core.ContextConfig{}, registry, 64, "", "session-1")
 
     answer, _ := agent.Run(context.Background(), "My name is Li Wei. I'm a senior engineer.")
     // Agent remembers. Ask a follow-up question in the same session.
@@ -89,9 +88,17 @@ func main() {
 
 ```go
 // Add Episodic memory for multi-turn persistence across restarts:
-mt, _ := builtins.NewMemoryTool(core.AppCfg,
-    []types.MemoryType{types.Working, types.Episodic}, // + SQLite + Qdrant
-    nil, nil, nil, nil)                                // auto-inits with config defaults
+// Pass MemoryConfig to auto-init stores + LLM for compression
+mt, _ := builtins.NewMemoryTool(
+    core.MemoryConfig{
+        Structured:  core.DriverConfig{Driver: "sqlite", Options: map[string]any{"db_path": "./data/memory.db"}},
+        Embedding:   core.DriverConfig{Driver: "openai", Options: map[string]any{"model_id": "text-embedding-3-small"}},
+        VectorStore: core.DriverConfig{Driver: "qdrant", Options: map[string]any{"host": "127.0.0.1", "port": 6333}},
+    },
+    llm,                                             // LLM for memory compression
+    []types.MemoryType{types.Working, types.Episodic},
+    nil, nil, nil, nil,                              // auto-init from config
+)
 ```
 
 Qdrant and SQLite are needed for Episodic/Semantic memory and RAG. Start with Working-only as above — it already handles cross-turn recall within a session.
@@ -139,13 +146,13 @@ Qdrant and SQLite are needed for Episodic/Semantic memory and RAG. Start with Wo
 │                                  │  └─OpenAIEmb │           │
 │  ┌───────────────────────────────┴──────────────┘           │
 │  │                    core                                  │
-│  │  BaseAgent │ LLMInterface (OpenAI HTTP) │ Config (viper) │
+│  │  BaseAgent │ LLMInterface (OpenAI HTTP) │ Config          │
 │  └──────────────────────────────────────────────────────────┘
 ```
 
 | Package | Responsibility |
 |:-----|:-----|
-| `core/` | `BaseAgent`, OpenAI-compatible HTTP client, multimodal `Message`, Viper config |
+| `core/` | `BaseAgent`, OpenAI-compatible HTTP client, multimodal `Message`, typed config structs |
 | `agents/` | `ReActAgent` — PERCEIVE → THINK → ACT loop |
 | `tools/` | `Tool` interface, `ToolRegistry`, `ToolExecutor`, `Chain` (multi-step orchestration) |
 | `tools/builtins/` | `MemoryTool`, `RAGTool`, `WebSearchTool` |
@@ -263,21 +270,27 @@ Compile-time validation catches: duplicate `StoreAs` names, parallel-group circu
 
 ## 🗂 Configuration
 
-YAML config with `${ENV_VAR}` expansion via Viper:
+All config is typed struct literals — no YAML, no global state. Zero-value fields get sensible defaults; `.ApplyEnv()` fills in empty values from environment variables.
 
-```yaml
-awesome-agent:
-  llm:       { model_id, provider, api_key, base_url, max_tokens, temperature, top_p }
-  memory:
-    structure:    { driver: "sqlite",  options: { db_path } }
-    embedding:    { driver: "openai",  options: { model_id, dimension, batch_size } }
-    vector_store: { driver: "qdrant",  options: { host, port } }
-    graph:        { driver: "neo4j",   options: { url, username, password } }
-  rag:       { max_doc_size, collection }
-  context:   { max_tokens, reserve_ratio, min_relevance, recency_weight, relevance_weight }
+```go
+// LLM: explicit fields + env fallback
+llm, _ := core.NewLLM(core.LLMConfig{
+    ModelID: "gpt-5.4",
+}.ApplyEnv())  // fills APIKey, BaseURL from MODEL_API_KEY / MODEL_BASE_URL
+
+// Memory: Driver + Options plugin pattern — swap backends with zero code changes
+memoryCfg := core.MemoryConfig{
+    Structured:  core.DriverConfig{Driver: "sqlite", Options: map[string]any{"db_path": "./data/memory.db"}},
+    Embedding:   core.DriverConfig{Driver: "openai", Options: map[string]any{"model_id": "text-embedding-3-small"}},
+    VectorStore: core.DriverConfig{Driver: "qdrant", Options: map[string]any{"host": "127.0.0.1", "port": 6333}},
+    Graph:       core.DriverConfig{Driver: "neo4j", Options: map[string]any{"url": "http://..."}},
+}
+
+// Context: zero-value = defaults (100k tokens, 0.1 reserve, 0.3/0.7 weights)
+agent, _ := agents.NewReActAgent("demo", llm, core.ContextConfig{}, registry, 64, "", "session-1")
 ```
 
-All storage backends use a **Driver + Options** plugin pattern — swap implementations with zero code changes.
+All storage backends use a **Driver + Options** plugin pattern. Pre-built stores can be passed in to bypass auto-init.
 
 ---
 

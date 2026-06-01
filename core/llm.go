@@ -35,6 +35,9 @@ func (c *openAIHTTPClient) chatComplete(ctx context.Context, messages []Message,
 		"top_p":       config.TopP,
 		"thinking":    map[string]string{"type": "disabled"},
 	}
+	if reqBody["max_tokens"] == 0 {
+		reqBody["max_tokens"] = 4096
+	}
 
 	if config.OpenAIExtraInfo != nil && len(config.OpenAIExtraInfo) > 0 {
 		for k, v := range config.OpenAIExtraInfo {
@@ -115,6 +118,9 @@ func (c *openAIHTTPClient) chatStream(ctx context.Context, messages []Message, c
 			"max_tokens":  config.MaxTokens,
 			"top_p":       config.TopP,
 			"thinking":    map[string]string{"type": "disabled"},
+		}
+		if reqBody["max_tokens"] == 0 {
+			reqBody["max_tokens"] = 4096
 		}
 
 		if config.OpenAIExtraInfo != nil && len(config.OpenAIExtraInfo) > 0 {
@@ -207,22 +213,15 @@ type LLMInterface interface {
 	ChatComplete(ctx context.Context, messages []Message, tools []map[string]interface{}, toolChoice interface{}) (Message, FinishReasonType, error)
 
 	ChatStream(ctx context.Context, messages []Message, tools []map[string]interface{}, toolChoice interface{}) <-chan StreamChunk
-
-	Provider() string
 }
 
 type AwesomeLLM struct {
 	httpClient openAIHTTPClient
 	config     LLMConfig
 
-	ModelID  string
-	provider string
-	APIKey   string
-	BaseURL  string
-}
-
-func (llmClient *AwesomeLLM) Provider() string {
-	return llmClient.provider
+	ModelID string
+	APIKey  string
+	BaseURL string
 }
 
 func (llmClient *AwesomeLLM) ChatComplete(ctx context.Context, messages []Message,
@@ -241,14 +240,13 @@ type StreamChunk struct {
 	Err          error
 }
 
-func NewLLM(llmConfig LLMConfig) (LLMInterface, error) {
+func NewLLM(config LLMConfig) (LLMInterface, error) {
 	llmClient := &AwesomeLLM{}
 
-	llmClient.provider = llmConfig.Provider
-	llmClient.ModelID = llmConfig.ModelID
-	llmClient.APIKey = llmConfig.APIKey
-	llmClient.BaseURL = llmConfig.BaseURL
-	llmClient.config = llmConfig
+	llmClient.ModelID = config.ModelID
+	llmClient.APIKey = config.APIKey
+	llmClient.BaseURL = config.BaseURL
+	llmClient.config = config
 
 	llmClient.httpClient = *newOpenAIHTTPClient(llmClient.BaseURL, llmClient.APIKey, llmClient.ModelID)
 	return llmClient, nil

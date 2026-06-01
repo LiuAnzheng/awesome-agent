@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+
 	"github.com/LiuAnzheng/memoria/core"
 	"github.com/LiuAnzheng/memoria/ctx/gssc"
 	"github.com/LiuAnzheng/memoria/tools"
 	"github.com/LiuAnzheng/memoria/tools/builtins"
-	"log/slog"
 )
 
 type ReActAgent struct {
@@ -151,7 +152,7 @@ func (ra *ReActAgent) injectSessionID(toolCalls []core.ToolCall) {
 
 func NewReActAgent(name string,
 	llm core.LLMInterface,
-	config core.AppConfig,
+	config core.ContextConfig,
 	toolRegistry *tools.ToolRegistry,
 	maxSteps int64,
 	systemPrompt string,
@@ -171,6 +172,23 @@ func NewReActAgent(name string,
 		MaxSteps:     maxSteps,
 		SessionID:    sessionID,
 	}
+
+	if ra.Config.MaxTokens == 0 {
+		ra.Config.MaxTokens = 100 * 1024
+	}
+	if ra.Config.ReserveRatio == 0 {
+		ra.Config.ReserveRatio = 0.1
+	}
+	if ra.Config.MinRelevance == 0 {
+		ra.Config.MinRelevance = 0.3
+	}
+	if ra.Config.RelevanceWeight == 0 {
+		ra.Config.RelevanceWeight = 0.7
+	}
+	if ra.Config.RecencyWeight == 0 {
+		ra.Config.RecencyWeight = 0.3
+	}
+
 	if toolRegistry != nil {
 		ra.Executor = tools.NewToolExecutor(toolRegistry)
 	} else {
@@ -188,7 +206,7 @@ func NewReActAgent(name string,
 		}
 	}
 	ra.ctxBuilder = gssc.NewContextBuilder(
-		config.ContextConfig,
+		config,
 		mt,
 		rt,
 		ra.SessionID,

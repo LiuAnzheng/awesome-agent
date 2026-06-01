@@ -3,14 +3,16 @@ package builtins
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/LiuAnzheng/memoria/memory/rag/advanced_features"
-	"github.com/LiuAnzheng/memoria/memory/rag/ingestion/chunker"
 	"io"
 	"log/slog"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/LiuAnzheng/memoria/memory/rag/advanced_features"
+	"github.com/LiuAnzheng/memoria/memory/rag/ingestion/chunker"
 
 	"github.com/LiuAnzheng/memoria/core"
 	"github.com/LiuAnzheng/memoria/memory/rag/ingestion"
@@ -104,7 +106,7 @@ User: "数据库连接池怎么配？" (no results for first search)
 
 type RAGTool struct {
 	pipeline *ingestion.Pipeline
-	config   core.AppConfig
+	config   core.RAGConfig
 
 	llm        core.LLMInterface
 	enableMQE  bool
@@ -125,38 +127,36 @@ func NewRAGTool(
 	embedSvc store.EmbeddingService,
 	vectorStore store.VectorStore,
 	docStore store.StructuredStore,
-	config core.AppConfig,
+	ragConfig core.RAGConfig,
+	memoryConfig core.MemoryConfig,
 	chunkStrategy chunker.ChunkStrategy,
 	enableMQE bool,
 	enableHyDE bool,
+	llm core.LLMInterface,
 ) (tools.Tool, error) {
 	rt := &RAGTool{
-		config:     config,
+		config:     ragConfig,
 		enableMQE:  enableMQE,
 		enableHyDE: enableHyDE,
 	}
-	pipeline, err := ingestion.NewPipeline(config, nil, nil, embedSvc, vectorStore, docStore, chunkStrategy)
+
+	if rt.config.MaxDocSize == 0 {
+		rt.config.MaxDocSize = 50 * 1024 * 1024
+	}
+	if rt.config.Collection == "" {
+		rt.config.Collection = "rag"
+	}
+
+	pipeline, err := ingestion.NewPipeline(ragConfig, memoryConfig, nil, nil, embedSvc, vectorStore, docStore, chunkStrategy)
 	if err != nil {
 		return nil, err
 	}
 	rt.pipeline = pipeline
 
-	if enableMQE || enableHyDE {
-		llm, err := core.NewLLM(core.LLMConfig{
-			ModelID:         config.LLMConfig.ModelID,
-			BaseURL:         config.LLMConfig.BaseURL,
-			MaxTokens:       config.LLMConfig.MaxTokens,
-			Temperature:     0.3,
-			TopP:            config.LLMConfig.TopP,
-			OpenAIExtraInfo: config.LLMConfig.OpenAIExtraInfo,
-			Provider:        config.LLMConfig.Provider,
-			APIKey:          config.LLMConfig.APIKey,
-		})
-		if err != nil {
-			return nil, err
-		}
-		rt.llm = llm
+	if (enableMQE || enableHyDE) && llm == nil {
+		return nil, errors.New("MQE HyDE need to LLM")
 	}
+	rt.llm = llm
 
 	return rt, nil
 }
@@ -468,7 +468,7 @@ func (r *RAGTool) runStatus(params map[string]interface{}) (string, error) {
 }
 
 func (r *RAGTool) collection() string {
-	c := r.config.RAGConfig.Collection
+	c := r.config.Collection
 	if c == "" {
 		return "rag_chunks"
 	}

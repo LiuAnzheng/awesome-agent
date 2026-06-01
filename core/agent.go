@@ -29,7 +29,7 @@ type BaseAgent struct {
 	LLM          LLMInterface
 	SystemPrompt string
 	history      []Message
-	Config       AppConfig
+	Config       ContextConfig
 }
 
 func (agent *BaseAgent) AddMessage(message Message) {
@@ -43,7 +43,4 @@ func (agent *BaseAgent) History() []Message {
 	history := make([]Message, len(agent.history))
 	copy(history, agent.history)
 	return history
-}
-func (agent *BaseAgent) String() string {
-	return "Agent name:" + agent.Name + " Provider:" + agent.LLM.Provider()
 }

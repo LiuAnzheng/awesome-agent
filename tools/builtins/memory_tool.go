@@ -3,15 +3,16 @@ package builtins
 import (
 	"context"
 	"fmt"
+	"slices"
+	"sort"
+	"sync"
+
 	"github.com/LiuAnzheng/memoria/core"
 	"github.com/LiuAnzheng/memoria/memory"
 	"github.com/LiuAnzheng/memoria/memory/store"
 	"github.com/LiuAnzheng/memoria/memory/store/impl"
 	"github.com/LiuAnzheng/memoria/memory/types"
 	"github.com/LiuAnzheng/memoria/tools"
-	"slices"
-	"sort"
-	"sync"
 )
 
 var memoryToolDescription = `═══ CRITICAL — READ THIS FIRST ═══
@@ -122,12 +123,13 @@ type MemoryTool struct {
 	structuredStore  store.StructuredStore
 	embeddingService store.EmbeddingService
 	graphStore       store.GraphStore
-	config           core.AppConfig
+
+	config core.MemoryConfig
+	llm    core.LLMInterface
 
 	managers         map[string]*memory.Manager
 	mu               sync.RWMutex
 	defaultSessionID string
-	llm              core.LLMInterface
 }
 
 func (m *MemoryTool) Name() string {
@@ -319,7 +321,9 @@ func (m *MemoryTool) UseSession(sessionID string) error {
 }
 
 func NewMemoryTool(
-	config core.AppConfig,
+	config core.MemoryConfig,
+	llm core.LLMInterface,
+
 	memoryTypes []types.MemoryType,
 	vectorStore store.VectorStore,
 	structuredStore store.StructuredStore,
@@ -346,28 +350,16 @@ func NewMemoryTool(
 		return nil, err
 	}
 
-	if slices.Contains(mt.types, types.Working) && slices.Contains(mt.types, types.Episodic) {
-		llm, err := core.NewLLM(core.LLMConfig{
-			ModelID:         config.LLMConfig.ModelID,
-			BaseURL:         config.LLMConfig.BaseURL,
-			MaxTokens:       config.LLMConfig.MaxTokens,
-			Temperature:     0.3, // 记忆整合用低温度
-			TopP:            config.LLMConfig.TopP,
-			OpenAIExtraInfo: config.LLMConfig.OpenAIExtraInfo,
-			Provider:        config.LLMConfig.Provider,
-			APIKey:          config.LLMConfig.APIKey,
-		})
-		if err != nil {
-			return nil, err
-		}
-		mt.llm = llm
+	if slices.Contains(mt.types, types.Working) && slices.Contains(mt.types, types.Episodic) && llm == nil {
+		return nil, fmt.Errorf("memory compress need to llm client")
 	}
+	mt.llm = llm
 
 	return mt, nil
 }
 
 func (m *MemoryTool) initDefaults() error {
-	cfg := m.config.Memory
+	cfg := m.config
 
 	if m.structuredStore == nil && slices.Contains(m.types, types.Episodic) {
 		opts := cfg.Structured.Options

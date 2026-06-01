@@ -55,16 +55,18 @@ type IngestResult struct {
 }
 
 type Pipeline struct {
-	config      core.AppConfig
-	parserReg   *parser.Registry
-	chunker     chunker.Chunker
-	EmbedSvc    store.EmbeddingService
-	VectorStore store.VectorStore
-	DocStore    store.StructuredStore
+	ragConfig    core.RAGConfig
+	memoryConfig core.MemoryConfig
+	parserReg    *parser.Registry
+	chunker      chunker.Chunker
+	EmbedSvc     store.EmbeddingService
+	VectorStore  store.VectorStore
+	DocStore     store.StructuredStore
 }
 
 func NewPipeline(
-	config core.AppConfig,
+	ragConfig core.RAGConfig,
+	memoryConfig core.MemoryConfig,
 	parserReg *parser.Registry,
 	iChunker chunker.Chunker,
 	embedSvc store.EmbeddingService,
@@ -73,18 +75,19 @@ func NewPipeline(
 	chunkStrategy chunker.ChunkStrategy,
 ) (*Pipeline, error) {
 	p := &Pipeline{
-		parserReg:   parserReg,
-		chunker:     iChunker,
-		EmbedSvc:    embedSvc,
-		VectorStore: vectorStore,
-		DocStore:    docStore,
-		config:      config,
+		parserReg:    parserReg,
+		chunker:      iChunker,
+		EmbedSvc:     embedSvc,
+		VectorStore:  vectorStore,
+		DocStore:     docStore,
+		ragConfig:    ragConfig,
+		memoryConfig: memoryConfig,
 	}
 	if p.parserReg == nil {
 		p.parserReg = parser.NewParserRegistry()
 	}
 	if p.EmbedSvc == nil {
-		p.EmbedSvc = impl.NewOpenAIEmbedding(config.Memory.Embedding.Options)
+		p.EmbedSvc = impl.NewOpenAIEmbedding(memoryConfig.Embedding.Options)
 	}
 	if p.chunker == nil {
 		if chunkStrategy == chunker.Semantic {
@@ -98,18 +101,18 @@ func NewPipeline(
 		}
 	}
 	if p.VectorStore == nil {
-		collection := config.RAGConfig.Collection
+		collection := ragConfig.Collection
 		if collection == "" {
 			collection = "rag_chunks"
 		}
-		p.VectorStore = impl.NewQdrantStore(config.Memory.VectorStore.Options)
+		p.VectorStore = impl.NewQdrantStore(memoryConfig.VectorStore.Options)
 		err := p.VectorStore.Init(context.Background(), collection, p.EmbedSvc.Dimension())
 		if err != nil {
 			return nil, err
 		}
 	}
 	if p.DocStore == nil {
-		p.DocStore = impl.NewSQLiteStore(config.Memory.Structured.Options)
+		p.DocStore = impl.NewSQLiteStore(memoryConfig.Structured.Options)
 		err := p.DocStore.Init(context.Background())
 		if err != nil {
 			return nil, err
@@ -133,8 +136,8 @@ func (p *Pipeline) Ingest(ctx context.Context, reader io.Reader, filename string
 	}
 
 	var maxDocSize int64 = 50 * 1024 * 1024
-	if p.config.RAGConfig.MaxDocSize > 0 {
-		maxDocSize = p.config.RAGConfig.MaxDocSize
+	if p.ragConfig.MaxDocSize > 0 {
+		maxDocSize = p.ragConfig.MaxDocSize
 	}
 	doc, err := suiteParser.Parse(reader, parser.ParseOptions{
 		MaxSize:  maxDocSize,
@@ -242,7 +245,7 @@ func (p *Pipeline) embedChunks(ctx context.Context, chunks []chunker.Chunk) ([][
 	}
 
 	batchSize := 32
-	if v, ok := p.config.Memory.Embedding.Options["batch_size"]; ok {
+	if v, ok := p.memoryConfig.Embedding.Options["batch_size"]; ok {
 		switch n := v.(type) {
 		case int:
 			batchSize = n
@@ -318,7 +321,7 @@ func (p *Pipeline) store(ctx context.Context, doc *parser.Document, chunks []chu
 		}
 	}()
 
-	collection := p.config.RAGConfig.Collection
+	collection := p.ragConfig.Collection
 	if collection == "" {
 		collection = "rag_chunks"
 	}

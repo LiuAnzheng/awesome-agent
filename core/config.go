@@ -1,198 +1,58 @@
 package core
 
-import (
-	"fmt"
-	"os"
-	"strings"
-
-	"github.com/spf13/viper"
-)
+import "os"
 
 type LLMConfig struct {
-	ModelID         string            `mapstructure:"model_id"`
-	Provider        string            `mapstructure:"provider"`
-	APIKey          string            `mapstructure:"api_key"`
-	BaseURL         string            `mapstructure:"base_url"`
-	MaxTokens       int64             `mapstructure:"max_tokens"`
-	Temperature     float64           `mapstructure:"temperature"`
-	TopP            float64           `mapstructure:"top_p"`
-	OpenAIExtraInfo map[string]string `mapstructure:"open_ai_extra_info"`
+	// required
+	ModelID string
+	APIKey  string
+	BaseURL string
+	// no required
+	MaxTokens       int64
+	Temperature     float64
+	TopP            float64
+	OpenAIExtraInfo map[string]string
 }
 
-// DriverConfig 通用驱动配置：driver 声明实现，options 为驱动专用参数
+func (l LLMConfig) ApplyEnv() LLMConfig {
+	if l.ModelID == "" {
+		l.ModelID = os.Getenv("MODEL_ID")
+	}
+	if l.APIKey == "" {
+		l.APIKey = os.Getenv("MODEL_API_KEY")
+	}
+	if l.BaseURL == "" {
+		l.BaseURL = os.Getenv("MODEL_BASE_URL")
+	}
+	return l
+}
+
 type DriverConfig struct {
-	Driver  string                 `mapstructure:"driver"`
-	Options map[string]interface{} `mapstructure:"options"`
+	// no required
+	Driver  string
+	Options map[string]interface{}
 }
 
 type MemoryConfig struct {
-	Structured  DriverConfig `mapstructure:"structure"`
-	Embedding   DriverConfig `mapstructure:"embedding"`
-	VectorStore DriverConfig `mapstructure:"vector_store"`
-	Graph       DriverConfig `mapstructure:"graph"`
+	// no required
+	Structured  DriverConfig
+	Embedding   DriverConfig
+	VectorStore DriverConfig
+	Graph       DriverConfig
 }
 
 type RAGConfig struct {
-	MaxDocSize int64  `mapstructure:"max_doc_size"`
-	Collection string `mapstructure:"collection"`
+	// no required
+	MaxDocSize int64
+	Collection string
 }
 
 type ContextConfig struct {
-	MaxTokens         int64   `mapstructure:"max_tokens"`
-	ReserveRatio      float64 `mapstructure:"reserve_ratio"`
-	MinRelevance      float64 `mapstructure:"min_relevance"`
-	EnableCompression bool    `mapstructure:"enable_compression"`
-	RecencyWeight     float64 `mapstructure:"recency_weight"`
-	RelevanceWeight   float64 `mapstructure:"relevance_weight"`
-}
-
-type AppConfig struct {
-	LLMConfig     LLMConfig     `mapstructure:"llm"`
-	Memory        MemoryConfig  `mapstructure:"memory"`
-	RAGConfig     RAGConfig     `mapstructure:"rag"`
-	ContextConfig ContextConfig `mapstructure:"context"`
-}
-
-var AppCfg = AppConfig{
-	LLMConfig: LLMConfig{
-		ModelID:         "gpt-5.4",
-		Provider:        "openai",
-		APIKey:          "",
-		BaseURL:         "https://api.openai.com/",
-		MaxTokens:       102400,
-		Temperature:     0.7,
-		TopP:            1.0,
-		OpenAIExtraInfo: make(map[string]string),
-	},
-	Memory: MemoryConfig{
-		Structured: DriverConfig{
-			Driver: "sqlite",
-			Options: map[string]interface{}{
-				"db_path": "./data/memory.db",
-			},
-		},
-		Embedding: DriverConfig{
-			Driver: "openai",
-			Options: map[string]interface{}{
-				"model_id":   "text-embedding-3-small",
-				"api_key":    "",
-				"base_url":   "https://api.openai.com/",
-				"dimension":  1024,
-				"batch_size": 32,
-			},
-		},
-		VectorStore: DriverConfig{
-			Driver: "qdrant",
-			Options: map[string]interface{}{
-				"host":    "127.0.0.1",
-				"port":    6333,
-				"api_key": "",
-			},
-		},
-		Graph: DriverConfig{
-			Driver: "neo4j",
-			Options: map[string]interface{}{
-				"url":      "http://127.0.0.1:7474",
-				"db":       "neo4j",
-				"username": "neo4j",
-				"password": "neo4j",
-			},
-		},
-	},
-	RAGConfig: RAGConfig{
-		MaxDocSize: 50 * 1024 * 1024,
-		Collection: "rag",
-	},
-	ContextConfig: ContextConfig{
-		MaxTokens:         102400,
-		ReserveRatio:      0.2,
-		MinRelevance:      0.1,
-		EnableCompression: true,
-		RecencyWeight:     0.3,
-		RelevanceWeight:   0.7,
-	},
-}
-
-func LoadConfig(path string) error {
-	file, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	expanded := os.ExpandEnv(string(file))
-	v := viper.New()
-	v.SetConfigType("yaml")
-
-	// LLM
-	v.SetDefault("memoria.llm.model_id", AppCfg.LLMConfig.ModelID)
-	v.SetDefault("memoria.llm.provider", AppCfg.LLMConfig.Provider)
-	v.SetDefault("memoria.llm.api_key", AppCfg.LLMConfig.APIKey)
-	v.SetDefault("memoria.llm.base_url", AppCfg.LLMConfig.BaseURL)
-	v.SetDefault("memoria.llm.max_tokens", AppCfg.LLMConfig.MaxTokens)
-	v.SetDefault("memoria.llm.temperature", AppCfg.LLMConfig.Temperature)
-	v.SetDefault("memoria.llm.top_p", AppCfg.LLMConfig.TopP)
-	v.SetDefault("memoria.llm.open_ai_extra_info", AppCfg.LLMConfig.OpenAIExtraInfo)
-
-	// Memory
-	v.SetDefault("memoria.memory.structure.driver", AppCfg.Memory.Structured.Driver)
-	v.SetDefault("memoria.memory.structure.options", AppCfg.Memory.Structured.Options)
-
-	v.SetDefault("memoria.memory.embedding.driver", AppCfg.Memory.Embedding.Driver)
-	v.SetDefault("memoria.memory.embedding.options", AppCfg.Memory.Embedding.Options)
-
-	v.SetDefault("memoria.memory.vector_store.driver", AppCfg.Memory.VectorStore.Driver)
-	v.SetDefault("memoria.memory.vector_store.options", AppCfg.Memory.VectorStore.Options)
-
-	v.SetDefault("memoria.memory.graph.driver", AppCfg.Memory.Graph.Driver)
-	v.SetDefault("memoria.memory.graph.options", AppCfg.Memory.Graph.Options)
-
-	// RAG
-	v.SetDefault("memoria.rag.max_doc_size", AppCfg.RAGConfig.MaxDocSize)
-	v.SetDefault("memoria.rag.collection", AppCfg.RAGConfig.Collection)
-
-	// Context
-	v.SetDefault("memoria.context.max_tokens", AppCfg.ContextConfig.MaxTokens)
-	v.SetDefault("memoria.context.reserve_ratio", AppCfg.ContextConfig.ReserveRatio)
-	v.SetDefault("memoria.context.min_relevance", AppCfg.ContextConfig.MinRelevance)
-	v.SetDefault("memoria.context.enable_compression", AppCfg.ContextConfig.EnableCompression)
-	v.SetDefault("memoria.context.recency_weight", AppCfg.ContextConfig.RecencyWeight)
-	v.SetDefault("memoria.context.relevance_weight", AppCfg.ContextConfig.RelevanceWeight)
-
-	err = v.ReadConfig(strings.NewReader(expanded))
-	if err != nil {
-		return err
-	}
-
-	sub := v.Sub("memoria")
-	if sub == nil {
-		return fmt.Errorf("config not found in %s", path)
-	}
-
-	if err := sub.Unmarshal(&AppCfg); err != nil {
-		return err
-	}
-	return validateContextConfig(AppCfg.ContextConfig, AppCfg.LLMConfig)
-}
-
-func validateContextConfig(c ContextConfig, l LLMConfig) error {
-	if c.MaxTokens <= 0 {
-		return fmt.Errorf("context.max_tokens must be positive, got: %v", c.MaxTokens)
-	}
-	if c.ReserveRatio < 0.0 || c.ReserveRatio > 1.0 {
-		return fmt.Errorf("reserve_ratio must be in [0, 1], got: %v", c.ReserveRatio)
-	}
-	if c.MinRelevance < 0.0 || c.MinRelevance > 1.0 {
-		return fmt.Errorf("min_relevance must be in [0, 1], got: %v", c.MinRelevance)
-	}
-	if c.RecencyWeight < 0.0 || c.RecencyWeight > 1.0 {
-		return fmt.Errorf("recency_weight must be in [0, 1], got: %v", c.RecencyWeight)
-	}
-	if c.RelevanceWeight < 0.0 || c.RelevanceWeight > 1.0 {
-		return fmt.Errorf("relevance_weight must be in [0, 1], got: %v", c.RelevanceWeight)
-	}
-	sum := c.RecencyWeight + c.RelevanceWeight
-	if sum < 0.999999 || sum > 1.000001 {
-		return fmt.Errorf("recency_weight + relevance_weight must equal 1.0, got sum=%v (recency=%v, relevance=%v)",
-			sum, c.RecencyWeight, c.RelevanceWeight)
-	}
-	return nil
+	// no required
+	MaxTokens         int64
+	ReserveRatio      float64
+	MinRelevance      float64
+	EnableCompression bool
+	RecencyWeight     float64
+	RelevanceWeight   float64
 }
