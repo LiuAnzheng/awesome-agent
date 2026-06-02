@@ -68,7 +68,6 @@ func main() {
     mt, _ := builtins.NewMemoryTool(
         core.MemoryConfig{}, nil,                     // nil LLM = 无压缩
         []types.MemoryType{types.Working},
-        nil, nil, nil, nil,
     )
     registry.Register(mt)
 
@@ -97,7 +96,6 @@ mt, _ := builtins.NewMemoryTool(
     },
     llm,                                             // 用于记忆压缩
     []types.MemoryType{types.Working, types.Episodic},
-    nil, nil, nil, nil,                              // 自动用 config 初始化
 )
 ```
 
@@ -140,10 +138,12 @@ Qdrant 和 SQLite 仅在需要 Episodic/Semantic 记忆或 RAG 时引入。先�
 │                 │ │builtins│ │   │  └─Perceptual│ 预留      │
 │                 │ ├Memory  │ │   │              │           │
 │                 │ ├RAG     │ │   │  store/impl  │           │
-│                 │ └WebSrch │ │   │  ├─SQLite    │           │
-│                 │ └────────┘ │   │  ├─Qdrant    │           │
-│                 └────────────┘   │  ├─Neo4j     │           │
-│                                  │  └─OpenAIEmb │           │
+│                 │ ├WebSrch │ │   │  ├─SQLite    │           │
+│                 │ └Note    │ │   │  ├─Qdrant    │           │
+│                 │ └────────┘ │   │  ├─Neo4j     │           │
+│                 └────────────┘   │  └─OpenAIEmb │           │
+│                                  │              │           │
+│                                  │  store/factory│          │
 │  ┌───────────────────────────────┴──────────────┘           │
 │  │                    core                                  │
 │  │  BaseAgent │ LLMInterface (OpenAI HTTP) │ Config          │
@@ -155,13 +155,15 @@ Qdrant 和 SQLite 仅在需要 Episodic/Semantic 记忆或 RAG 时引入。先�
 | `core/` | `BaseAgent` 基类、OpenAI 兼容 HTTP 客户端、多模态 `Message`、类型化配置 |
 | `agents/` | `ReActAgent` — 感知 → 思考 → 行动循环 |
 | `tools/` | `Tool` 接口、`ToolRegistry` 注册中心、`ToolExecutor` 执行器、`Chain` 多步编排 |
-| `tools/builtins/` | 内置工具：`MemoryTool`、`RAGTool`、`WebSearchTool` |
+| `tools/builtins/` | 内置工具：`MemoryTool`、`RAGTool`、`WebSearchTool`、`NoteTool` |
 | `ctx/gssc/` | GSSC 管线：`Gatherer` → `Selector` → `Structurer` → `ContextBuilder` |
 | `memory/` | 多层级记忆管理器 + 类型定义（Working / Episodic / Semantic） |
 | `memory/store/` | 存储接口：`StructuredStore` / `VectorStore` / `GraphStore` / `EmbeddingService` |
-| `memory/store/impl/` | 驱动实现：SQLite、Qdrant、Neo4j、OpenAI Embedding |
+| `memory/store/factory/` | 可插拔驱动注册表 — `Register("postgres", ...)` → 所有工具自动可用 |
+| `memory/store/impl/` | 内置驱动：SQLite、Qdrant、Neo4j、OpenAI Embedding（通过 `init()` 自动注册） |
 | `memory/retrieval/` | BM25 评分器、稀疏向量、中文分词器（gse） |
 | `memory/rag/` | 文档摄入管线 + 高级检索（MQE 查询扩展、HyDE 假设文档、RRF 融合） |
+| `note/` | 笔记数据模型：`NoteType`、`NoteMetadata`、`NoteIndex` |
 | `mcp/` | MCP 协议桩（预留） |
 
 ---
@@ -227,7 +229,7 @@ Working (内存)               Episodic (SQLite+Qdrant)       Semantic (Neo4j+Qd
 
 | 阶段 | 动作 |
 |:-----|:-----|
-| **Gather** | 从四个来源收集 `ContextPacket`：系统指令、记忆搜索、RAG 搜索、最近 32 条历史消息 |
+| **Gather** | 从五个来源收集 `ContextPacket`：系统指令、记忆搜索、笔记（优先阻塞项）、RAG 搜索、最近 32 条历史消息 |
 | **Select** | 综合评分 = `relevance_weight × Jaccard 相似度` + `recency_weight × 指数衰减时新度`，在 token 预算内按分数截断。语义记忆自动跳过时新度衰减 |
 | **Structure** | 按来源渲染为结构化段落：[Role & Policies] → [Task] → [Evidence] → [Context] → [Output] |
 
@@ -289,12 +291,13 @@ memoryCfg := core.MemoryConfig{
 agent, _ := agents.NewReActAgent("demo", llm, core.ContextConfig{}, registry, 64, "", "session-1")
 ```
 
-所有存储后端采用统一的 **Driver + Options** 插件模式。可传入预创建的 store 实例以跳过自动初始化。
+所有存储后端采用统一的 **Driver + Options** 插件模式——设置 `Driver: "sqlite"`，工厂自动创建。在你的包的 `init()` 中调用 `factory.RegisterStructuredStore("postgres", ...)` 即可添加自定义后端，所有工具自动生效。
 
 ---
 
 ## 💡 关键设计点
 
+- **可插拔存储后端**：`store/factory` 注册机制——`init()` 驱动的驱动注册；新增数据库/向量库后端无需改动核心代码
 - **Session 隔离**：`MemoryTool` 内部持有 `map[string]*Manager`，通过 `_session_id` 自动路由到对应会话
 - **并发安全**：WorkingMemory 使用 `RWMutex` + `atomic.Bool`（CAS 压缩锁）；Tool Chain 并行组使用 `WaitGroup`
 - **输入校验**：SQLite 表名/列名正则防注入；Tool 参数类型校验 + 默认值填充 + 非声明参数剔除
