@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"strconv"
+	"time"
+
 	"github.com/LiuAnzheng/memoria/core"
 	"github.com/LiuAnzheng/memoria/memory/retrieval"
 	"github.com/LiuAnzheng/memoria/memory/store"
 	"github.com/LiuAnzheng/memoria/memory/types"
-	"log/slog"
-	"strconv"
-	"time"
 )
 
 type Manager struct {
@@ -33,7 +34,7 @@ type Manager struct {
 }
 
 func NewManager(
-	config core.AppConfig,
+	config core.MemoryConfig,
 	sessionId string,
 	enableWorking bool,
 	enableEpisodic bool,
@@ -50,7 +51,7 @@ func NewManager(
 		return nil, errors.New("sessionId is required")
 	}
 	m := &Manager{
-		config: config.Memory,
+		config: config,
 
 		SessionId:        sessionId,
 		EnableWorking:    enableWorking,
