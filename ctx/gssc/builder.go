@@ -1,10 +1,11 @@
 package gssc
 
 import (
+	"log/slog"
+
 	"github.com/LiuAnzheng/memoria/core"
 	"github.com/LiuAnzheng/memoria/ctx"
 	"github.com/LiuAnzheng/memoria/tools/builtins"
-	"log/slog"
 )
 
 type ContextBuilder struct {
@@ -18,12 +19,13 @@ func NewContextBuilder(
 	cfg core.ContextConfig,
 	mt *builtins.MemoryTool,
 	rt *builtins.RAGTool,
+	nt *builtins.NoteTool,
 	sessionID string,
 ) *ContextBuilder {
 	cb := &ContextBuilder{
 		config: cfg,
 	}
-	cb.gatherer = NewGatherer(sessionID, mt, rt)
+	cb.gatherer = NewGatherer(sessionID, mt, rt, nt)
 	cb.selector = NewSelector(WithRecencyWeight(cfg.RecencyWeight),
 		WithRelevanceWeight(cfg.RelevanceWeight),
 		WithMinRelevance(cfg.MinRelevance))

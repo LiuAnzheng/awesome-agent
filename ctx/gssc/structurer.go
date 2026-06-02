@@ -1,8 +1,9 @@
 package gssc
 
 import (
-	"github.com/LiuAnzheng/memoria/ctx"
 	"strings"
+
+	"github.com/LiuAnzheng/memoria/ctx"
 )
 
 // SectionName 分区名称。
@@ -125,7 +126,7 @@ func defaultClassifier(p ctx.ContextPacket) SectionName {
 	switch p.Source {
 	case ctx.SystemInstructions:
 		return SectionRolePolicies
-	case ctx.RAG:
+	case ctx.RAG, ctx.Note:
 		return SectionEvidence
 	case ctx.Memory:
 		if t, ok := p.Metadata["memory_type"]; ok && t == "semantic" {

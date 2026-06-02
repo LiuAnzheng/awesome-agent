@@ -61,6 +61,9 @@ func main() {
 		panic(err)
 	}
 
+	// note tool
+	nt := builtins.NewNoteTool("./data/notes")
+
 	// 摄入文档
 	ragTool := rt.(*builtins.RAGTool)
 	err = ragTool.Ingest(context.Background(), "./knowledge_base/people.txt", "test.txt")
@@ -71,6 +74,7 @@ func main() {
 	// 注册工具
 	registry.Register(mt)
 	registry.Register(rt)
+	registry.Register(nt)
 
 	// 创建agent
 	agent, _ := agents.NewReActAgent("demo", llm, core.ContextConfig{}, registry, 1024, "", sessionID)

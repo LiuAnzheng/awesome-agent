@@ -197,6 +197,7 @@ func NewReActAgent(name string,
 
 	var mt *builtins.MemoryTool
 	var rt *builtins.RAGTool
+	var nt *builtins.NoteTool
 	if toolRegistry != nil {
 		if t, ok := toolRegistry.Tool("memory_tool"); ok {
 			mt, _ = t.(*builtins.MemoryTool)
@@ -204,11 +205,15 @@ func NewReActAgent(name string,
 		if t, ok := toolRegistry.Tool("rag_tool"); ok {
 			rt, _ = t.(*builtins.RAGTool)
 		}
+		if t, ok := toolRegistry.Tool("note_tool"); ok {
+			nt, _ = t.(*builtins.NoteTool)
+		}
 	}
 	ra.ctxBuilder = gssc.NewContextBuilder(
 		config,
 		mt,
 		rt,
+		nt,
 		ra.SessionID,
 	)
 

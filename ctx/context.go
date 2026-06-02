@@ -1,8 +1,9 @@
 package ctx
 
 import (
-	"github.com/LiuAnzheng/memoria/core"
 	"time"
+
+	"github.com/LiuAnzheng/memoria/core"
 )
 
 type ContextSource string
@@ -13,6 +14,7 @@ const (
 	SystemInstructions ContextSource = "systemInstructions"
 	History            ContextSource = "history"
 	Custom             ContextSource = "custom"
+	Note               ContextSource = "note"
 )
 
 type ContextPacket struct {
