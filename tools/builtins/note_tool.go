@@ -1,4 +1,4 @@
-﻿package builtins
+package builtins
 
 import (
 	"encoding/json"
@@ -245,7 +245,6 @@ func (n *NoteTool) update(noteID string, title string, content string, noteType 
 		return "", fmt.Errorf("note id %s not exists", noteID)
 	}
 
-	// 鍘熷鍐呭
 	oldContent, e := n.getNoteContent(metadata)
 
 	if e != nil {
