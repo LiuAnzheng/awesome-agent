@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 )
 
 type OpenAIEmbedding struct {
@@ -17,64 +16,6 @@ type OpenAIEmbedding struct {
 	dimension uint64
 	batchSize int
 	client    *http.Client
-}
-
-func NewOpenAIEmbedding(options map[string]interface{}) *OpenAIEmbedding {
-	e := &OpenAIEmbedding{
-		modelID:   "text-embedding-3-small",
-		baseURL:   "https://api.openai.com/",
-		dimension: 1024,
-		batchSize: 32,
-		client:    &http.Client{Timeout: 60 * time.Second},
-	}
-	if v, ok := options["model_id"]; ok {
-		if s, ok := v.(string); ok && s != "" {
-			e.modelID = s
-		}
-	}
-	if v, ok := options["api_key"]; ok {
-		if s, ok := v.(string); ok {
-			e.apiKey = s
-		}
-	}
-	if v, ok := options["base_url"]; ok {
-		if s, ok := v.(string); ok && s != "" {
-			e.baseURL = s
-		}
-	}
-	if v, ok := options["dimension"]; ok {
-		switch n := v.(type) {
-		case uint64:
-			if n > 0 {
-				e.dimension = n
-			}
-		case int:
-			if n > 0 {
-				e.dimension = uint64(n)
-			}
-		case int64:
-			if n > 0 {
-				e.dimension = uint64(n)
-			}
-		case float64:
-			if n > 0 {
-				e.dimension = uint64(n)
-			}
-		}
-	}
-	if v, ok := options["batch_size"]; ok {
-		switch n := v.(type) {
-		case int:
-			if n > 0 {
-				e.batchSize = n
-			}
-		case float64:
-			if n > 0 {
-				e.batchSize = int(n)
-			}
-		}
-	}
-	return e
 }
 
 func (e *OpenAIEmbedding) Embed(ctx context.Context, text string) ([]float64, error) {

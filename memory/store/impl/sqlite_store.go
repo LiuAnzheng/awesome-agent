@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/LiuAnzheng/memoria/memory/store"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/LiuAnzheng/memoria/memory/store"
 
 	_ "modernc.org/sqlite"
 )
@@ -16,16 +17,6 @@ import (
 type SQLiteStore struct {
 	db     *sql.DB
 	dbPath string
-}
-
-func NewSQLiteStore(options map[string]interface{}) *SQLiteStore {
-	dbPath := "./data/memory.db"
-	if v, ok := options["db_path"]; ok {
-		if s, ok := v.(string); ok && s != "" {
-			dbPath = s
-		}
-	}
-	return &SQLiteStore{dbPath: dbPath}
 }
 
 // Init 打开数据库连接，配置运行参数

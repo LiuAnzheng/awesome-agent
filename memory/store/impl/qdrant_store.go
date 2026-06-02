@@ -6,51 +6,16 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
-	"github.com/LiuAnzheng/memoria/memory/store"
 	"io"
 	"net/http"
-	"time"
+
+	"github.com/LiuAnzheng/memoria/memory/store"
 )
 
 type QdrantStore struct {
 	apiKey  string
 	client  *http.Client
 	baseURL string
-}
-
-func NewQdrantStore(options map[string]interface{}) *QdrantStore {
-	host := "127.0.0.1"
-	port := 6333
-	apiKey := ""
-
-	if v, ok := options["host"]; ok {
-		if s, ok := v.(string); ok && s != "" {
-			host = s
-		}
-	}
-	if v, ok := options["port"]; ok {
-		switch n := v.(type) {
-		case int:
-			if n > 0 {
-				port = n
-			}
-		case float64:
-			if n > 0 {
-				port = int(n)
-			}
-		}
-	}
-	if v, ok := options["api_key"]; ok {
-		if s, ok := v.(string); ok {
-			apiKey = s
-		}
-	}
-
-	return &QdrantStore{
-		apiKey:  apiKey,
-		client:  &http.Client{Timeout: 30 * time.Second},
-		baseURL: fmt.Sprintf("http://%s:%d", host, port),
-	}
 }
 
 func (q *QdrantStore) Init(ctx context.Context, collection string, dimension uint64) error {

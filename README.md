@@ -68,7 +68,6 @@ func main() {
     mt, _ := builtins.NewMemoryTool(
         core.MemoryConfig{}, nil,                     // nil LLM = no compression
         []types.MemoryType{types.Working},
-        nil, nil, nil, nil,
     )
     registry.Register(mt)
 
@@ -101,7 +100,6 @@ mt, _ := builtins.NewMemoryTool(
     },
     llm,                                             // LLM for memory compression
     []types.MemoryType{types.Working, types.Episodic},
-    nil, nil, nil, nil,                              // auto-init from config
 )
 ```
 
@@ -163,7 +161,8 @@ Qdrant and SQLite are needed for Episodic/Semantic memory and RAG. Start with Wo
 | `ctx/gssc/` | GSSC pipeline: `Gatherer` → `Selector` → `Structurer` → `ContextBuilder` |
 | `memory/` | Multi-tier memory manager + types (Working / Episodic / Semantic) |
 | `memory/store/` | Storage interfaces: `StructuredStore` / `VectorStore` / `GraphStore` / `EmbeddingService` |
-| `memory/store/impl/` | Driver implementations: SQLite, Qdrant, Neo4j, OpenAI Embedding |
+| `memory/store/factory/` | Pluggable driver registry — `Register("postgres", ...)` → auto-used by all tools |
+| `memory/store/impl/` | Built-in drivers: SQLite, Qdrant, Neo4j, OpenAI Embedding (auto-registered via `init()`) |
 | `memory/retrieval/` | BM25 scorer, sparse vectors, Chinese tokenizer (gse) |
 | `memory/rag/` | Ingestion pipeline + advanced recall (MQE, HyDE, RRF fusion) |
 | `note/` | Note data model: `NoteType`, `NoteMetadata`, `NoteIndex` |
@@ -295,12 +294,13 @@ memoryCfg := core.MemoryConfig{
 agent, _ := agents.NewReActAgent("demo", llm, core.ContextConfig{}, registry, 64, "", "session-1")
 ```
 
-All storage backends use a **Driver + Options** plugin pattern. Pre-built stores can be passed in to bypass auto-init.
+All storage backends use a **Driver + Options** plugin pattern — set `Driver: "sqlite"` and the factory auto-creates it. Add custom backends with `factory.RegisterStructuredStore("postgres", ...)` in your package's `init()` and all tools pick it up automatically.
 
 ---
 
 ## 💡 Design Highlights
 
+- **Pluggable backends**: `store/factory` registry — `init()`-based driver registration; adding a new DB/vector store requires zero changes to core code
 - **Session isolation**: `MemoryTool` holds `map[string]*memory.Manager`; `_session_id` auto-routes tool calls to the correct session
 - **Concurrency**: `RWMutex` + `atomic.Bool` (CAS compression lock) for WorkingMemory; `WaitGroup` for parallel tool chains
 - **Input safety**: SQLite table/column name validation (injection prevention); tool param type validation + default fill + unknown param stripping

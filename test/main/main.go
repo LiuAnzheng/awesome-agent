@@ -43,14 +43,13 @@ func main() {
 			"db": "neo4j", "username": "neo4j", "password": "123456789"}},
 	}
 	// memory tool
-	mt, err := builtins.NewMemoryTool(memoryConfig, llm, types.AvailableMemoryTypes,
-		nil, nil, nil, nil)
+	mt, err := builtins.NewMemoryTool(memoryConfig, llm, types.AvailableMemoryTypes)
 	if err != nil {
 		panic(err)
 	}
 
 	// rag tool
-	rt, err := builtins.NewRAGTool(nil, nil, nil,
+	rt, err := builtins.NewRAGTool(
 		core.RAGConfig{
 			MaxDocSize: 50 * 1024 * 1024,
 			Collection: "rag",

@@ -15,7 +15,7 @@ import (
 	"github.com/LiuAnzheng/memoria/memory/rag/ingestion/chunker"
 	"github.com/LiuAnzheng/memoria/memory/rag/ingestion/parser"
 	"github.com/LiuAnzheng/memoria/memory/store"
-	"github.com/LiuAnzheng/memoria/memory/store/impl"
+	"github.com/LiuAnzheng/memoria/memory/store/factory"
 
 	"github.com/google/uuid"
 )
@@ -69,26 +69,25 @@ func NewPipeline(
 	memoryConfig core.MemoryConfig,
 	parserReg *parser.Registry,
 	iChunker chunker.Chunker,
-	embedSvc store.EmbeddingService,
-	vectorStore store.VectorStore,
-	docStore store.StructuredStore,
 	chunkStrategy chunker.ChunkStrategy,
 ) (*Pipeline, error) {
 	p := &Pipeline{
 		parserReg:    parserReg,
 		chunker:      iChunker,
-		EmbedSvc:     embedSvc,
-		VectorStore:  vectorStore,
-		DocStore:     docStore,
 		ragConfig:    ragConfig,
 		memoryConfig: memoryConfig,
 	}
 	if p.parserReg == nil {
 		p.parserReg = parser.NewParserRegistry()
 	}
-	if p.EmbedSvc == nil {
-		p.EmbedSvc = impl.NewOpenAIEmbedding(memoryConfig.Embedding.Options)
+
+	var err error
+
+	p.EmbedSvc, err = factory.NewEmbeddingService(memoryConfig.Embedding.Driver, memoryConfig.Embedding.Options)
+	if err != nil {
+		return nil, err
 	}
+
 	if p.chunker == nil {
 		if chunkStrategy == chunker.Semantic {
 			semanticChunker, err := chunker.NewSemanticChunker(p.EmbedSvc, 2, 1, 50)
@@ -100,25 +99,30 @@ func NewPipeline(
 			p.chunker = chunker.NewRecursiveChunker()
 		}
 	}
-	if p.VectorStore == nil {
-		collection := ragConfig.Collection
-		if collection == "" {
-			collection = "rag_chunks"
-		}
-		p.VectorStore = impl.NewQdrantStore(memoryConfig.VectorStore.Options)
-		err := p.VectorStore.Init(context.Background(), collection, p.EmbedSvc.Dimension())
-		if err != nil {
-			return nil, err
-		}
+
+	collection := ragConfig.Collection
+	if collection == "" {
+		collection = "rag_chunks"
 	}
-	if p.DocStore == nil {
-		p.DocStore = impl.NewSQLiteStore(memoryConfig.Structured.Options)
-		err := p.DocStore.Init(context.Background())
-		if err != nil {
-			return nil, err
-		}
+	p.VectorStore, err = factory.NewVectorStore(memoryConfig.VectorStore.Driver, memoryConfig.VectorStore.Options)
+	if err != nil {
+		return nil, err
 	}
-	err := p.init(context.Background())
+	err = p.VectorStore.Init(context.Background(), collection, p.EmbedSvc.Dimension())
+	if err != nil {
+		return nil, err
+	}
+
+	p.DocStore, err = factory.NewStructuredStore(memoryConfig.Structured.Driver, memoryConfig.Structured.Options)
+	if err != nil {
+		return nil, err
+	}
+	err = p.DocStore.Init(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	err = p.init(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize pipeline: %w", err)
 	}

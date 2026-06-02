@@ -3,14 +3,11 @@ package impl
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/LiuAnzheng/memoria/memory/store"
 )
@@ -19,43 +16,6 @@ type Neo4jStore struct {
 	client *http.Client
 	txURL  string
 	auth   string
-}
-
-func NewNeo4jStore(options map[string]interface{}) *Neo4jStore {
-	url := "http://127.0.0.1:7474"
-	dbName := "neo4j"
-	username := "neo4j"
-	password := "neo4j"
-
-	if v, ok := options["url"]; ok {
-		if s, ok := v.(string); ok && s != "" {
-			url = s
-		}
-	}
-	if v, ok := options["db"]; ok {
-		if s, ok := v.(string); ok && s != "" {
-			dbName = s
-		}
-	}
-	if v, ok := options["username"]; ok {
-		if s, ok := v.(string); ok && s != "" {
-			username = s
-		}
-	}
-	if v, ok := options["password"]; ok {
-		if s1, ok := v.(string); ok {
-			password = s1
-		}
-		if s2, ok := v.(int); ok {
-			password = strconv.Itoa(s2)
-		}
-	}
-
-	return &Neo4jStore{
-		client: &http.Client{Timeout: 30 * time.Second},
-		txURL:  fmt.Sprintf("%s/db/%s/tx/commit", strings.TrimRight(url, "/"), dbName),
-		auth:   "Basic " + base64.StdEncoding.EncodeToString([]byte(username+":"+password)),
-	}
 }
 
 // Init 检查 Neo4j 是否可达

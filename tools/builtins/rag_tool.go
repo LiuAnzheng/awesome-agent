@@ -124,9 +124,6 @@ type SearchItem struct {
 }
 
 func NewRAGTool(
-	embedSvc store.EmbeddingService,
-	vectorStore store.VectorStore,
-	docStore store.StructuredStore,
 	ragConfig core.RAGConfig,
 	memoryConfig core.MemoryConfig,
 	chunkStrategy chunker.ChunkStrategy,
@@ -147,7 +144,7 @@ func NewRAGTool(
 		rt.config.Collection = "rag"
 	}
 
-	pipeline, err := ingestion.NewPipeline(ragConfig, memoryConfig, nil, nil, embedSvc, vectorStore, docStore, chunkStrategy)
+	pipeline, err := ingestion.NewPipeline(ragConfig, memoryConfig, nil, nil, chunkStrategy)
 	if err != nil {
 		return nil, err
 	}

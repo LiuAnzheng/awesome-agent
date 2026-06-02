@@ -10,7 +10,7 @@ import (
 	"github.com/LiuAnzheng/memoria/core"
 	"github.com/LiuAnzheng/memoria/memory"
 	"github.com/LiuAnzheng/memoria/memory/store"
-	"github.com/LiuAnzheng/memoria/memory/store/impl"
+	"github.com/LiuAnzheng/memoria/memory/store/factory"
 	"github.com/LiuAnzheng/memoria/memory/types"
 	"github.com/LiuAnzheng/memoria/tools"
 )
@@ -325,18 +325,10 @@ func NewMemoryTool(
 	llm core.LLMInterface,
 
 	memoryTypes []types.MemoryType,
-	vectorStore store.VectorStore,
-	structuredStore store.StructuredStore,
-	embeddingService store.EmbeddingService,
-	graphStore store.GraphStore,
 ) (tools.Tool, error) {
 	mt := &MemoryTool{
-		types:            memoryTypes,
-		config:           config,
-		vectorStore:      vectorStore,
-		structuredStore:  structuredStore,
-		embeddingService: embeddingService,
-		graphStore:       graphStore,
+		types:  memoryTypes,
+		config: config,
 
 		managers: make(map[string]*memory.Manager),
 	}
@@ -360,55 +352,44 @@ func NewMemoryTool(
 
 func (m *MemoryTool) initDefaults() error {
 	cfg := m.config
+	var err error
 
-	if m.structuredStore == nil && slices.Contains(m.types, types.Episodic) {
-		opts := cfg.Structured.Options
-		switch cfg.Structured.Driver {
-		case "sqlite":
-			m.structuredStore = impl.NewSQLiteStore(opts)
-		default:
-			return fmt.Errorf("unsupported structure driver: %s", cfg.Structured.Driver)
+	if slices.Contains(m.types, types.Episodic) {
+		m.structuredStore, err = factory.NewStructuredStore(cfg.Structured.Driver, cfg.Structured.Options)
+		if err != nil {
+			return err
 		}
-		if err := m.structuredStore.Init(context.Background()); err != nil {
+		if err = m.structuredStore.Init(context.Background()); err != nil {
 			return err
 		}
 	}
 
-	if m.embeddingService == nil && (slices.Contains(m.types, types.Episodic) || slices.Contains(m.types, types.Semantic)) {
-		opts := cfg.Embedding.Options
-		switch cfg.Embedding.Driver {
-		case "openai":
-			m.embeddingService = impl.NewOpenAIEmbedding(opts)
-		default:
-			return fmt.Errorf("unsupported embedding driver: %s", cfg.Embedding.Driver)
+	if slices.Contains(m.types, types.Episodic) || slices.Contains(m.types, types.Semantic) {
+		m.embeddingService, err = factory.NewEmbeddingService(cfg.Embedding.Driver, cfg.Embedding.Options)
+		if err != nil {
+			return err
 		}
 	}
 
-	if m.vectorStore == nil && (slices.Contains(m.types, types.Episodic) || slices.Contains(m.types, types.Semantic)) {
-		opts := cfg.VectorStore.Options
-		switch cfg.VectorStore.Driver {
-		case "qdrant":
-			m.vectorStore = impl.NewQdrantStore(opts)
-		default:
-			return fmt.Errorf("unsupported vector_store driver: %s", cfg.VectorStore.Driver)
+	if slices.Contains(m.types, types.Episodic) || slices.Contains(m.types, types.Semantic) {
+		m.vectorStore, err = factory.NewVectorStore(cfg.VectorStore.Driver, cfg.VectorStore.Options)
+		if err != nil {
+			return err
 		}
-		if err := m.vectorStore.Init(context.Background(), "episodes", m.embeddingService.Dimension()); err != nil {
+		if err = m.vectorStore.Init(context.Background(), "episodes", m.embeddingService.Dimension()); err != nil {
 			return fmt.Errorf("init vector_store episodic: %w", err)
 		}
-		if err := m.vectorStore.Init(context.Background(), "semantic", m.embeddingService.Dimension()); err != nil {
+		if err = m.vectorStore.Init(context.Background(), "semantic", m.embeddingService.Dimension()); err != nil {
 			return fmt.Errorf("init vector_store semantic: %w", err)
 		}
 	}
 
-	if m.graphStore == nil && slices.Contains(m.types, types.Semantic) {
-		opts := cfg.Graph.Options
-		switch cfg.Graph.Driver {
-		case "neo4j":
-			m.graphStore = impl.NewNeo4jStore(opts)
-		default:
-			return fmt.Errorf("unsupported graph driver: %s", cfg.Graph.Driver)
+	if slices.Contains(m.types, types.Semantic) {
+		m.graphStore, err = factory.NewGraphStore(cfg.Graph.Driver, cfg.Graph.Options)
+		if err != nil {
+			return err
 		}
-		if err := m.graphStore.Init(context.Background()); err != nil {
+		if err = m.graphStore.Init(context.Background()); err != nil {
 			return fmt.Errorf("init graph store neo4j: %w", err)
 		}
 	}
