@@ -45,7 +45,7 @@ set MODEL_BASE_URL=https://api.openai.com
 go run ./test/main/
 ```
 
-**20 lines of Go — API key only, zero infrastructure:**
+**Minimal setup — API key only, zero infrastructure:**
 
 ```go
 package main
@@ -71,6 +71,10 @@ func main() {
         nil, nil, nil, nil,
     )
     registry.Register(mt)
+
+    // Structured note-taking for research & coding sessions
+    nt := builtins.NewNoteTool("./data/notes")
+    registry.Register(nt)
 
     agent, _ := agents.NewReActAgent("demo", llm, core.ContextConfig{}, registry, 64, "", "session-1")
 
@@ -140,10 +144,10 @@ Qdrant and SQLite are needed for Episodic/Semantic memory and RAG. Start with Wo
 │                 │ │builtins│ │   │  └─Perceptual│ stub     │
 │                 │ ├Memory  │ │   │              │           │
 │                 │ ├RAG     │ │   │  store/impl  │           │
-│                 │ └WebSrch │ │   │  ├─SQLite    │           │
-│                 │ └────────┘ │   │  ├─Qdrant    │           │
-│                 └────────────┘   │  ├─Neo4j     │           │
-│                                  │  └─OpenAIEmb │           │
+│                 │ ├WebSrch │ │   │  ├─SQLite    │           │
+│                 │ └Note    │ │   │  ├─Qdrant    │           │
+│                 │ └────────┘ │   │  ├─Neo4j     │           │
+│                 └────────────┘   │  └─OpenAIEmb │           │
 │  ┌───────────────────────────────┴──────────────┘           │
 │  │                    core                                  │
 │  │  BaseAgent │ LLMInterface (OpenAI HTTP) │ Config          │
@@ -155,13 +159,14 @@ Qdrant and SQLite are needed for Episodic/Semantic memory and RAG. Start with Wo
 | `core/` | `BaseAgent`, OpenAI-compatible HTTP client, multimodal `Message`, typed config structs |
 | `agents/` | `ReActAgent` — PERCEIVE → THINK → ACT loop |
 | `tools/` | `Tool` interface, `ToolRegistry`, `ToolExecutor`, `Chain` (multi-step orchestration) |
-| `tools/builtins/` | `MemoryTool`, `RAGTool`, `WebSearchTool` |
+| `tools/builtins/` | `MemoryTool`, `RAGTool`, `WebSearchTool`, `NoteTool` |
 | `ctx/gssc/` | GSSC pipeline: `Gatherer` → `Selector` → `Structurer` → `ContextBuilder` |
 | `memory/` | Multi-tier memory manager + types (Working / Episodic / Semantic) |
 | `memory/store/` | Storage interfaces: `StructuredStore` / `VectorStore` / `GraphStore` / `EmbeddingService` |
 | `memory/store/impl/` | Driver implementations: SQLite, Qdrant, Neo4j, OpenAI Embedding |
 | `memory/retrieval/` | BM25 scorer, sparse vectors, Chinese tokenizer (gse) |
 | `memory/rag/` | Ingestion pipeline + advanced recall (MQE, HyDE, RRF fusion) |
+| `note/` | Note data model: `NoteType`, `NoteMetadata`, `NoteIndex` |
 | `mcp/` | MCP protocol stubs (reserved) |
 
 ---
@@ -228,7 +233,7 @@ File                Chunking              Embedding            Storage
 
 | Stage | Action |
 |:-----|:-----|
-| **Gather** | Collect `ContextPacket`s from: system prompt, memory search, RAG search, last 32 history messages |
+| **Gather** | Collect `ContextPacket`s from: system prompt, memory, RAG, notes (prioritizes blockers), last 32 history messages |
 | **Select** | Score = `relevance_weight × Jaccard` + `recency_weight × expDecay(time)`. Truncate within token budget. Semantic memory skips recency decay. |
 | **Structure** | Render into sections: [Role & Policies] → [Task] → [Evidence] → [Context] → [Output] |
 
