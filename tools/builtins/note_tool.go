@@ -1,4 +1,4 @@
-package builtins
+﻿package builtins
 
 import (
 	"encoding/json"
@@ -73,7 +73,9 @@ Do NOT use note_tool for: one-off facts, short Q&A, transient state (use memory_
   1. search(query, note_type?) BEFORE creating — avoid duplicates, find related notes
   2. create(title, content, note_type, tags) to persist findings
   3. update(note_id, ...) as understanding evolves
-  4. summary() periodically to check overall progress and type distribution`
+  4. summary() periodically to check overall progress and type distribution
+
+Tip: list(note_type="blocker") to see blockers only, list(note_type="action") for action items.`
 }
 
 func (n *NoteTool) Run(parameters map[string]interface{}) (string, error) {
@@ -103,10 +105,12 @@ func (n *NoteTool) Run(parameters map[string]interface{}) (string, error) {
 		limit := int(toInt64(parameters["limit"]))
 		noteType := note.NoteType(getString(parameters, "note_type"))
 		tags := toStringSlice(parameters["tags"])
-		return n.search(query, limit, noteType, tags)
+		return n.Search(query, limit, noteType, tags)
 	case "list":
 		limit := int(toInt64(parameters["limit"]))
-		return n.list(limit)
+		noteType := note.NoteType(getString(parameters, "note_type"))
+		tags := toStringSlice(parameters["tags"])
+		return n.List(limit, noteType, tags)
 	case "summary":
 		return n.summary(), nil
 	default:
@@ -130,11 +134,11 @@ func (n *NoteTool) Parameters() []tools.ToolParameter {
 		},
 		{
 			Name: "note_type", Type: tools.ParamString, Required: false, Default: "general",
-			Description: "[create/update/search] task_state, conclusion, blocker, action, reference, general",
+			Description: "[create/update/search/list] task_state, conclusion, blocker, action, reference, general",
 		},
 		{
 			Name: "tags", Type: tools.ParamArray, Required: false, ItemsType: tools.ParamString,
-			Description: "[create/update/search] Tag list for filtering",
+			Description: "[create/update/search/list] Tag list for filtering",
 		},
 		{
 			Name: "note_id", Type: tools.ParamString, Required: false,
@@ -245,7 +249,7 @@ func (n *NoteTool) update(noteID string, title string, content string, noteType 
 		return "", fmt.Errorf("note id %s not exists", noteID)
 	}
 
-	oldContent, e := n.getNoteContent(metadata)
+	oldContent, e := n.GetNoteContent(metadata)
 
 	if e != nil {
 		return "", fmt.Errorf("get old content failed: %w", e)
@@ -309,7 +313,7 @@ func (n *NoteTool) delete(noteID string) (string, error) {
 	return fmt.Sprintf("note deleted: %s", title), nil
 }
 
-func (n *NoteTool) search(query string, limit int, noteType note.NoteType, tags []string) (string, error) {
+func (n *NoteTool) Search(query string, limit int, noteType note.NoteType, tags []string) (string, error) {
 	if query == "" {
 		return "", fmt.Errorf("query can not be empty")
 	}
@@ -337,7 +341,7 @@ func (n *NoteTool) search(query string, limit int, noteType note.NoteType, tags 
 				continue
 			}
 		}
-		noteContent, err := n.getNoteContent(metadata)
+		noteContent, err := n.GetNoteContent(metadata)
 		if err != nil {
 			slog.Warn("get note content fail ", "err", err)
 			continue
@@ -357,11 +361,30 @@ func (n *NoteTool) search(query string, limit int, noteType note.NoteType, tags 
 	return string(bytes), nil
 }
 
-func (n *NoteTool) list(limit int) (string, error) {
+func (n *NoteTool) List(limit int, noteType note.NoteType, tags []string) (string, error) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 	res := make([]note.NoteMetadata, 0)
 	for _, metadata := range n.index {
+		if noteType != "" && noteType != metadata.Type {
+			continue
+		}
+		if tags != nil && len(tags) > 0 {
+			set := make(map[string]struct{})
+			for _, tag := range metadata.Tags {
+				set[tag] = struct{}{}
+			}
+			contains := false
+			for _, tag := range tags {
+				if _, ok := set[tag]; ok {
+					contains = true
+					break
+				}
+			}
+			if !contains {
+				continue
+			}
+		}
 		res = append(res, metadata)
 	}
 	slices.SortFunc(res, func(m1, m2 note.NoteMetadata) int {
@@ -409,7 +432,7 @@ func (n *NoteTool) saveIndex() error {
 	return os.WriteFile(indexPath, data, 0644)
 }
 
-func (n *NoteTool) getNoteContent(metadata note.NoteMetadata) (string, error) {
+func (n *NoteTool) GetNoteContent(metadata note.NoteMetadata) (string, error) {
 	bytes, err := os.ReadFile(metadata.FilePath)
 	if err != nil {
 		return "", fmt.Errorf("read note file failed: %w", err)
