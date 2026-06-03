@@ -40,15 +40,13 @@ func (cb *ContextBuilder) Build(
 	customPackets []ctx.ContextPacket,
 ) string {
 	packets := cb.gatherer.Gather(query, history, systemInstructions, customPackets)
-	slog.Debug("gssc: gathered", "count", len(packets))
 
 	budget := float64(cb.config.MaxTokens) * (1 - cb.config.ReserveRatio)
 	packets = cb.selector.Select(packets, query, int64(budget))
-	slog.Debug("gssc: selected", "count", len(packets))
+
+	slog.Info("gssc recall packets ", "count", len(packets))
 
 	structured := cb.structurer.Structure(packets, query)
-
-	slog.Debug("gssc: structured", "content", structured)
 
 	return structured
 }

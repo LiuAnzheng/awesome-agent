@@ -1,13 +1,14 @@
 package gssc
 
 import (
-	"github.com/LiuAnzheng/memoria/core"
-	"github.com/LiuAnzheng/memoria/ctx"
-	"github.com/LiuAnzheng/memoria/memory/retrieval"
 	"log/slog"
 	"math"
 	"sort"
 	"time"
+
+	"github.com/LiuAnzheng/memoria/core"
+	"github.com/LiuAnzheng/memoria/ctx"
+	"github.com/LiuAnzheng/memoria/memory/retrieval"
 )
 
 type RelevanceFunc func(content, query string) float64
@@ -79,7 +80,7 @@ func (s *SelectorImpl) Select(packets []ctx.ContextPacket, query string, budget 
 	systemTokens := sumTokens(systemPackets)
 	remaining := budget - systemTokens
 	if remaining <= 0 {
-		slog.Warn("gatherer: system instructions exhausted token budget",
+		slog.Warn("selector: system instructions exhausted token budget",
 			"system_tokens", systemTokens, "budget", budget)
 		return systemPackets
 	}

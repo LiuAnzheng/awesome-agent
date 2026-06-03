@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"strings"
 )
@@ -52,8 +51,6 @@ func (c *openAIHTTPClient) chatComplete(ctx context.Context, messages []Message,
 		reqBody["tools"] = tools
 		reqBody["tool_choice"] = toolChoice
 	}
-
-	slog.Debug("llm request", "body", fmt.Sprintf("%#v", reqBody))
 
 	body, _ := json.Marshal(reqBody)
 

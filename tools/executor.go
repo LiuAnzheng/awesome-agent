@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/LiuAnzheng/memoria/core"
 	"log/slog"
 	"math"
 	"strings"
+
+	"github.com/LiuAnzheng/memoria/core"
 )
 
 type ToolExecutor struct {
@@ -67,14 +68,14 @@ func (e *ToolExecutor) executeOne(tc core.ToolCall) core.Message {
 
 	result, err := tool.Run(params)
 	if err != nil {
-		slog.Error("tool execution failed", "error", err)
+		slog.Error("tool execution failed", "name", "error", tc.Function.Name, err)
 		return core.Message{
 			Role:       "tool",
 			Content:    fmt.Sprintf("tool execution failed: %v", err),
 			ToolCallID: tc.ID,
 		}
 	}
-	slog.Debug("tool executed", "name", tc.Function.Name, "result", result)
+	slog.Debug("tool executed success", "name", tc.Function.Name)
 
 	return core.Message{
 		Role:       "tool",
