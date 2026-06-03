@@ -210,7 +210,7 @@ func NewReActAgent(name string,
 		}
 	}
 	ra.ctxBuilder = gssc.NewContextBuilder(
-		config,
+		ra.Config,
 		mt,
 		rt,
 		nt,
@@ -223,10 +223,24 @@ func NewReActAgent(name string,
 			mt, _ = t.(*builtins.MemoryTool)
 			if !mt.HasSessionID(ra.SessionID) {
 				err := mt.AddSession(ra.SessionID)
-				slog.Info("react agent set default memory session", "sessionID", ra.SessionID)
 				if err != nil {
 					return nil, err
 				}
+				slog.Info("react agent set default memory session", "sessionID", ra.SessionID)
+			}
+		}
+	}
+
+	// 初始化terminal tool session
+	if toolRegistry != nil {
+		if t, ok := toolRegistry.Tool("terminal_tool"); ok {
+			tt, _ := t.(*builtins.TerminalTool)
+			if _, err := tt.Session(ra.SessionID); err != nil {
+				err := tt.AddSession(ra.SessionID, "")
+				if err != nil {
+					return nil, err
+				}
+				slog.Info("react agent set default terminal session", "sessionID", ra.SessionID)
 			}
 		}
 	}

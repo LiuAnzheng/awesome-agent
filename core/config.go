@@ -1,6 +1,9 @@
 package core
 
-import "os"
+import (
+	"os"
+	"time"
+)
 
 type LLMConfig struct {
 	// required
@@ -45,6 +48,16 @@ type RAGConfig struct {
 	// no required
 	MaxDocSize int64
 	Collection string
+}
+
+type TerminalConfig struct {
+	// no required
+	Timeout         time.Duration
+	MaxOutputSize   int64
+	InitDir         string
+	WorkSpace       string
+	AllowCD         *bool
+	AllowedCommands []string
 }
 
 type ContextConfig struct {
