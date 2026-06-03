@@ -71,9 +71,12 @@ func main() {
     )
     registry.Register(mt)
 
-    // Structured note-taking for research & coding sessions
-    nt := builtins.NewNoteTool("./data/notes")
-    registry.Register(nt)
+    // Terminal tool — command execution with sandbox & whitelist
+    tt, _ := builtins.NewTerminalTool(core.TerminalConfig{
+        AllowedCommands: []string{"ls", "dir", "cat", "head", "tail", "find", "grep",
+            "wc", "sort", "uniq", "pwd", "file", "stat", "echo", "go", "git"},
+    })
+    registry.Register(tt)
 
     agent, _ := agents.NewReActAgent("demo", llm, core.ContextConfig{}, registry, 64, "", "session-1")
 
@@ -143,9 +146,9 @@ Qdrant and SQLite are needed for Episodic/Semantic memory and RAG. Start with Wo
 │                 │ ├Memory  │ │   │              │           │
 │                 │ ├RAG     │ │   │  store/impl  │           │
 │                 │ ├WebSrch │ │   │  ├─SQLite    │           │
-│                 │ └Note    │ │   │  ├─Qdrant    │           │
-│                 │ └────────┘ │   │  ├─Neo4j     │           │
-│                 └────────────┘   │  └─OpenAIEmb │           │
+│                 │ ├Note    │ │   │  ├─Qdrant    │           │
+│                 │ └Terminal│ │   │  ├─Neo4j     │           │
+│                 │ └────────┘ │   │  └─OpenAIEmb │           │
 │  ┌───────────────────────────────┴──────────────┘           │
 │  │                    core                                  │
 │  │  BaseAgent │ LLMInterface (OpenAI HTTP) │ Config          │
@@ -157,7 +160,7 @@ Qdrant and SQLite are needed for Episodic/Semantic memory and RAG. Start with Wo
 | `core/` | `BaseAgent`, OpenAI-compatible HTTP client, multimodal `Message`, typed config structs |
 | `agents/` | `ReActAgent` — PERCEIVE → THINK → ACT loop |
 | `tools/` | `Tool` interface, `ToolRegistry`, `ToolExecutor`, `Chain` (multi-step orchestration) |
-| `tools/builtins/` | `MemoryTool`, `RAGTool`, `WebSearchTool`, `NoteTool` |
+| `tools/builtins/` | `MemoryTool`, `RAGTool`, `WebSearchTool`, `NoteTool`, `TerminalTool` |
 | `ctx/gssc/` | GSSC pipeline: `Gatherer` → `Selector` → `Structurer` → `ContextBuilder` |
 | `memory/` | Multi-tier memory manager + types (Working / Episodic / Semantic) |
 | `memory/store/` | Storage interfaces: `StructuredStore` / `VectorStore` / `GraphStore` / `EmbeddingService` |
@@ -306,6 +309,7 @@ All storage backends use a **Driver + Options** plugin pattern — set `Driver: 
 - **Input safety**: SQLite table/column name validation (injection prevention); tool param type validation + default fill + unknown param stripping
 - **Token estimation**: CJK chars ≈ 2 tokens, non-CJK ≈ 0.25 tokens per character
 - **Memory guard**: Agent message history truncates to last 512 when exceeding 1024
+- **Terminal safety**: `TerminalTool` enforces workspace sandbox (`cd` boundary check via `filepath.Rel`) and optional command whitelist
 - **Timezone**: All timestamps use `core.Now()` (Asia/Shanghai with CST fallback)
 
 ---

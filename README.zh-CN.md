@@ -71,6 +71,13 @@ func main() {
     )
     registry.Register(mt)
 
+    // 终端工具 —— 命令执行 + 沙箱 + 白名单
+    tt, _ := builtins.NewTerminalTool(core.TerminalConfig{
+        AllowedCommands: []string{"ls", "dir", "cat", "head", "tail", "find", "grep",
+            "wc", "sort", "uniq", "pwd", "file", "stat", "echo", "go", "git"},
+    })
+    registry.Register(tt)
+
     agent, _ := agents.NewReActAgent("demo", llm, core.ContextConfig{}, registry, 64, "", "session-1")
 
     answer, _ := agent.Run(context.Background(), "我叫李伟，是一名高级工程师。")
@@ -139,9 +146,9 @@ Qdrant 和 SQLite 仅在需要 Episodic/Semantic 记忆或 RAG 时引入。先�
 │                 │ ├Memory  │ │   │              │           │
 │                 │ ├RAG     │ │   │  store/impl  │           │
 │                 │ ├WebSrch │ │   │  ├─SQLite    │           │
-│                 │ └Note    │ │   │  ├─Qdrant    │           │
-│                 │ └────────┘ │   │  ├─Neo4j     │           │
-│                 └────────────┘   │  └─OpenAIEmb │           │
+│                 │ ├Note    │ │   │  ├─Qdrant    │           │
+│                 │ └Terminal│ │   │  ├─Neo4j     │           │
+│                 │ └────────┘ │   │  └─OpenAIEmb │           │
 │                                  │              │           │
 │                                  │  store/factory│          │
 │  ┌───────────────────────────────┴──────────────┘           │
@@ -155,7 +162,7 @@ Qdrant 和 SQLite 仅在需要 Episodic/Semantic 记忆或 RAG 时引入。先�
 | `core/` | `BaseAgent` 基类、OpenAI 兼容 HTTP 客户端、多模态 `Message`、类型化配置 |
 | `agents/` | `ReActAgent` — 感知 → 思考 → 行动循环 |
 | `tools/` | `Tool` 接口、`ToolRegistry` 注册中心、`ToolExecutor` 执行器、`Chain` 多步编排 |
-| `tools/builtins/` | 内置工具：`MemoryTool`、`RAGTool`、`WebSearchTool`、`NoteTool` |
+| `tools/builtins/` | 内置工具：`MemoryTool`、`RAGTool`、`WebSearchTool`、`NoteTool`、`TerminalTool` |
 | `ctx/gssc/` | GSSC 管线：`Gatherer` → `Selector` → `Structurer` → `ContextBuilder` |
 | `memory/` | 多层级记忆管理器 + 类型定义（Working / Episodic / Semantic） |
 | `memory/store/` | 存储接口：`StructuredStore` / `VectorStore` / `GraphStore` / `EmbeddingService` |
@@ -303,6 +310,7 @@ agent, _ := agents.NewReActAgent("demo", llm, core.ContextConfig{}, registry, 64
 - **输入校验**：SQLite 表名/列名正则防注入；Tool 参数类型校验 + 默认值填充 + 非声明参数剔除
 - **Token 估算**：CJK 字符 ≈ 2 tokens/字，非 CJK ≈ 0.25 tokens/字
 - **内存保护**：Agent 消息历史超过 1024 条时截断保留后 512 条
+- **终端安全**：`TerminalTool` 强制工作空间沙箱（`cd` 边界检测，基于 `filepath.Rel`）+ 可选命令白名单
 - **时区统一**：全局使用 `core.Now()`（Asia/Shanghai，CST fallback）
 
 ---
